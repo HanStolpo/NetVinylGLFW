@@ -40,7 +40,7 @@ import Linear hiding (trace)
 import Safe hiding (at)
 import System.Random ()
 import Prelude hiding ((.), id)     -- more general version imported from Control.Category
-import Debug.Trace
+--import Debug.Trace
 import GHC.Conc
 -- custom code
 import Data.Vinyl.Instances.Default 
@@ -599,7 +599,7 @@ instance RegisterCallback CbKey where
 keyE :: GLFW.Key -> EventM' a
 keyE k =  passOver $ require pressed . readW (rLens callbacks . rLens cbKey)
     where
-        pressed = not . null . filter (\t -> (t^._2 == k && t^._4 >= GLFW.KeyState'Released))
+        pressed = not . null . filter (\t -> (t^._2 == k && t^._4 == GLFW.KeyState'Pressed))
 
 passOver :: WireM' a b -> EventM' a
 passOver w = fst <$> (id &&& w)
