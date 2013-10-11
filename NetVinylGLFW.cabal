@@ -1,0 +1,10 @@
+Name:           NetVinylGLFW
+Version:        0.0
+Build-Type:     Simple
+Cabal-Version:  >= 1.9.2
+
+executable NetVinylGLFW
+    main-is:            NetVinylGLFW.hs
+    GHC-Options:        -Wall -O2 -optc-Os
+    build-depends:      base, GLFW-b, OpenGL, GLUtil, netwire, mtl, lens, lifted-base, safe, random,
+                        stm, vinyl, vinyl-gl, linear, raw-strings-qq, transformers, data-default
