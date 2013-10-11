@@ -44,7 +44,10 @@ glueCbGLFW l = do
         return (cb, upd)
 
 -- Set a GLFW call back using a lens to store the accumulated values in some type
-setCallBackGLFW :: forall c s m. (MonadIO m, CurryGLFW c) => (Maybe c -> IO()) -> Lens' s [TplGLFW c]  -> m (s -> m s)
+setCallBackGLFW :: forall c s m. (MonadIO m, CurryGLFW c)   
+                => (Maybe c -> IO())                        -- The specific call back registration function
+                -> Lens' s [TplGLFW c]                      -- The lens allowing us to store the result
+                -> m (s -> m s)                             -- The resultant updater function transfering callback results
 setCallBackGLFW f l = do
     -- Create the uncurried call back an the update function which are glued together
     (cb, upd) <- glueCbGLFW l

@@ -53,6 +53,9 @@ type InitWidthHeight = "InitWidthHeight" ::: (Int, Int)
 initWidthHeight :: InitWidthHeight
 initWidthHeight = Field
 
+-- Our application record consisting of a set of call back data, a function to update
+-- the call back data, a set IO actions that may be used to draw things to screen and 
+-- the initial width and height of the screen.
 type App = PlainRec [Callbacks, CallbacksUpdater, Renderables, InitWidthHeight]
 initApp :: GLFW.Window -> IO App
 initApp win = let 
@@ -272,6 +275,7 @@ instance (RegisterCallback f, RegisterCallbacks (PlainRec rs)) => RegisterCallba
 type WireM' = WireM ReadAppM
 type EventM' a = EventM ReadAppM a
 
+-- Given a lens produce a wire which provides the environment value at the current instant
 readW :: (Lens' App b) -> WireM' a b
 readW l = W.perform . pure (view l)
 --------------------------------------------------------------------------------
@@ -685,5 +689,3 @@ main = do
                             GLFW.destroyWindow win
                         Nothing -> putStrLn "Failed to create the GLFW window"
                     GLFW.terminate
-
-

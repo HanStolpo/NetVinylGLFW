@@ -1,4 +1,4 @@
-NetVinylGLFW
+NetVinylGLFW (Work in progress)
 ====================
 This is a small experiment application used to explore functional reactive game programming in Haskell using the Netwire, Vinyl, Vinyl-GL, 
 Lens, Linear and GLFW-b packages. I is also did it to have something for show and tell at my functional programming users group.
@@ -15,6 +15,7 @@ many other resources. On that note here is a list of some resources (that I can 
 * [Modern OpenGL with Haskell](http://www.arcadianvisions.com/blog/?p=224)
 * [Asteroids & Netwire](http://ocharles.org.uk/blog/posts/2013-08-18-asteroids-in-netwire.html)
 * [Getting Started with Netwire and SDL](http://ocharles.org.uk/blog/posts/2013-08-01-getting-started-with-netwire-and-sdl.html)
+* [Haskell OpenGL animation done right: using closures and channels instead of IORef’s](http://dmytrish.wordpress.com/2013/01/12/haskell-opengl-animation-done-right/)
 
 Why
 ==================
@@ -146,7 +147,7 @@ has wires, intervals and events where [Netwire 4][] conceptually has wires and e
 [Netwire 4]: http://hackage.haskell.org/package/netwire-4.0.7/docs/Control-Wire.html
 [Netwire 5]: http://hub.darcs.net/ertes/netwire
 
-An garnish with Vinyl
+And garnish with Vinyl
 ----------------------
 [Vinyl][], what like in a record you play? Well yes. The vinyl library in short provides you constructs that you can use in place of the
 default supported Haskell records. It basically allows you to construct custom product types as type lists using all kinds of extensions
@@ -166,10 +167,95 @@ OpenGL's side and your side matches up.
 
 [Vinyl]: http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html
 
+The experiment
+=========================
+
+The game or not the game
+-------------------------
+That is the question and the answer is that I spent too much time playing with scaffolding rather than defining any creative or sensible
+notion of a game. So currently you have a bordered area with a red and a green box bouncing around in it and a paddle at the bottom which
+you can move around and that can shoot little bullets. Everything renders to screen collides with one another and the paddle responds to
+keyboard input. It is very basic but at least something to experiment with.
+
+The structure of things
+-------------------------
+I wanted to keep the game loop pure and not just because the application is in Haskell but so that it would be possible to evolve it into
+a parallel game loop sometime in the future. This had an impact on the Monad chosen for the wires. I did not go for the Identity Monad, which
+would certainly have made the wires pure, but rather the effect free Reader Monad. This allowed me to pass the environment to my wires 
+without but still not introducing dependency on effects. The environment holds all the available resources and also the results of the GLFW
+callbacks. How do I draw stuff then, well the main wire produces a stream of lists of IO actions.
+
+```Haskell
+    type WireM' = WireM ReadAppM        -- The type of wires in the app
+    type EventM' a = EventM ReadAppM a  -- The type of events in the app
+    mainW :: WireM' a [IO()]            -- The main wire takes nothing but produces IO actions
+```
+
+I wanted to make it easy to register and update GLFW callbacks as well as the other resources which would be available and I wanted to be
+flexible with which resource are available. I decided to use vinyl records to represent all the data in my Reader Monad and use type classes
+to iterate over them and initialize them.
+
+```haskell
+    -- Our application record consisting of a set of call back data, a function to update
+    -- the call back data, a set IO actions that may be used to draw things to screen and 
+    -- the initial width and height of the screen.
+    type App = PlainRec [Callbacks, CallbacksUpdater, Renderables, InitWidthHeight]
+
+    -- The Renderables field contains all the available renderables (things that can be drawn)
+    -- the elements of the record are instantiated through CreateRenderable class
+    type Renderables = "Renderables" ::: PlainRec '[DrawUnitBox]
+    renderables :: Renderables
+    renderables = Field
+
+    -- Class defines function used to create a renderable in Renderables
+    class CreateRenderable a where createRenderable :: Shaders -> IO (PlainRec '[a])
+
+    -- Class used to iterate over the renderables in Renderables
+    class CreateRenderables a where createRenderables :: Shaders -> IO a
+
+    -- CreateRenderables for empty rec is empty
+    instance CreateRenderables (PlainRec '[]) where createRenderables _ = return $ RNil
+
+    -- CreateRenderables for rec is CreateRenderable for the head prefixed to CrreateRenderables for the tail
+    instance (CreateRenderable f, CreateRenderables (PlainRec rs)) => CreateRenderables (PlainRec (f ': rs)) where
+            createRenderables ss = (V.<+>) <$> createRenderable ss <*> createRenderables ss
+`````
+
+The flow of the application is then as follows:
+1. Construct environment loading resources registering callbacks etc.
+2. Step the main wire running it inside the reader monad.
+3. Perform all the actions returned by the main wire (draw stuff).
+4. Update the environment due to GLFW callbacks.
+5. Repeat from step 2 until the main wire inhibits.
 
 
+Handling callbacks
+--------------------------
+Dealing with callbacks is painful in Haskell even when having to hook into a nice minimalist library like GLFW-b. So I wanted to make it
+easy to register callbacks with GLFW and to store the results in my Reader Monad so that they would be available for my wires to generate
+wire events. On one of the blogs I read I got introduced to the idea of queueing up the callback results using STM and then processing them
+again later. I evolved that idea into this.
 
+```
+    -- Set a GLFW call back using a lens to store the accumulated values in some type
+    setCallBackGLFW :: forall c s m. (MonadIO m, CurryGLFW c)   
+                    => (Maybe c -> IO())                        -- The specific call back registration function
+                    -> Lens' s [TplGLFW c]                      -- The lens allowing us to store the result
+                    -> m (s -> m s)                             -- The resultant updater function transfering callback results
 
+    -- Example of call back registration
+    -- The type which stores the results of the window size call back for this instant
+    type CbWindowSize = "WindowSizeCallback" ::: [(GLFW.Window, Int, Int)]
+    cbWindowSize :: CbWindowSize
+    cbWindowSize = Field 
+    instance RegisterCallback CbWindowSize where 
+            registerCallback _ win = setCallBackGLFW (GLFW.setWindowSizeCallback win) (rLens callbacks . rLens cbWindowSize)
+
+    -- Given a lens produce a wire which provides the environment value at the current instant
+    readW :: (Lens' App b) -> WireM' a b
+```
+So you define a Vinyl type for your callback and an instance for **RegisterCallback** which will register it and make the results
+available in your application Reader Monad which you can access using the **readW**.
 
 
 
