@@ -100,12 +100,71 @@ Just like functions arrows can be composed and evaluated and there are arrow com
 of these arrows. Haskell also provides you with arrow notation which is similar to do notation allowing you to define complicated
 networks succinctly. You evaluate the arrow **(->) b c** basically by providing the argument **b** but other arrows will have special *run*
 functions. 
+
+An example of a non normal function arrow could be the automaton arrow that is based on functions that produce an output and a new
+evolved arrow which can be used in the next evaluation to produce a different result. Local state can be captured inside the automaton
+arrow which may be updated and returned in the new arrow to have an effect.
+
+```haskell
+    newtype Auto b c = Auto (b -> (c, Auto b c))
+    runAuto (Auto a) b = let (c, newAuto) = a b in (c, newAuto)
+```
 [John Hughes]: http://www.haskell.org/arrows/
 [Arrows]: http://en.wikibooks.org/wiki/Haskell/Understanding_arrows 
 
+A dash of Netwire
+-----------------
+[Netwire][] is an arrow library that can be used for FRP and other forms of locally stateful programming. The version I used was version 4
+and that is the one currently on Hackage. It seems [Netwire 5][] is still in development. 
 
+The core primitive in [Netwire][] is the wire which is an automaton arrow that evolves with time; at least thats how I see it. The semantics
+of the [Netwire][] arrows are, I would say, more expressive than the standard arrow semantics in that the arrow can either produce a value or 
+inhibit with a monoid. When a wire inhibits, itself and its dependant network will not produce a value but rather the result will be the
+inhibition monoid. There are also primitives for merging sets of wires selecting the result based on which ones inhibit and which ones don't.
 
+The wire type in Netwire is **Wire e m a b** with **Wire e m** defining the type of arrow with **e** being the type of the inhibition monoid
+and **m** being the type of the Monad the wire inhabits. For your application or a subsets of wires your application you would usually 
+fix **e** and **m** to specific types.
 
+```haskell
+    data Wire e m a b 
+    type Event e m a = Wire e m a a
+```
+
+Behaviours are represented in Netwire as wires from **a** to **b** and events as wires from **a** to **a**. So the wires map obviously to
+FRP behaviours but the mapping of input/output constrained wires to discrete FRP events involves a slight bit of subtlety. The continuous
+signal is modulated into a discrete signal by the fact that a wire can either inhibit or produce (switch on or off). But wires are flexible
+and any wire can inhibit, so why the type constraint on input/output values. It tells you that events should modulate the network they are
+embedded in based on the signals that flow through them. To get the FRP sense of events as a streams of discrete time values you 
+would modulate a value producing wire through an event wire. You could also have a value producing wire switching on and off but this is
+not usually what you want really want to be doing. 
+
+[Netwire 5][] actually recasts the event of of [Netwire 4][] as intervals and adds an explicit event concept. So [Netwire 5][] conceptually
+has wires, intervals and events where [Netwire 4][] conceptually has wires and events.
+
+[Netwire]: http://hackage.haskell.org/package/netwire-4.0.7/docs/Control-Wire.html
+[Netwire 4]: http://hackage.haskell.org/package/netwire-4.0.7/docs/Control-Wire.html
+[Netwire 5]: http://hub.darcs.net/ertes/netwire
+
+An garnish with Vinyl
+----------------------
+[Vinyl][], what like in a record you play? Well yes. The vinyl library in short provides you constructs that you can use in place of the
+default supported Haskell records. It basically allows you to construct custom product types as type lists using all kinds of extensions
+for type level programming. 
+
+You can define a **Field** as a combination of a type level string and another type. This is a distinct type. You can then define type
+level lists of these fields to represent a record or **PlainRec**/**Rec** type. 
+
+```Haskell
+    Field :: "name" ::: String --- a distinct field type with symbol name "name"
+    type LifeForm = ["name" ::: String, "age" ::: Int, "sleeping" ::: Bool] -- an example of a record using vinyl
+```
+
+[Vinyl-gl][] makes use of the fact that you tagged types with strings literals and can define arbitrary combinations of these to allow you
+to easily define vertex buffers and shader inputs and then takes care of uploading those values to OpenGL and checking that the semantics on
+OpenGL's side and your side matches up.
+
+[Vinyl]: http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html
 
 
 
