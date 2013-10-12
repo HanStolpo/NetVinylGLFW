@@ -1,0 +1,2 @@
+#!/bin/bash
+pandoc --slide-level 2 -i -t slidy -s Slides.md -o Slides.html
