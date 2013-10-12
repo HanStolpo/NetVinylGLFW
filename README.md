@@ -63,9 +63,9 @@ you would be have a switching construct which allows you to change behaviours du
 behaviours, events and switches.
 
 ```haskell
-    Behaviour a :: T -> a
-    Event a :: [(T,a)]
-    Switch a :: Behaviour a -> Event (Behaviour a) -> Behaviour a
+Behaviour a :: T -> a
+Event a :: [(T,a)]
+Switch a :: Behaviour a -> Event (Behaviour a) -> Behaviour a
 ```
 
 [reactive programming]: http://en.wikipedia.org/wiki/Reactive_programming
@@ -79,22 +79,22 @@ A smidgen of Arrows
 are arrows and other arrows are like functions with super secret jet packs. An arrow is usually represented as **a b c** meaning 
 arrow **a** which takes a value **b** and produces a value **c** and this all happening in the context defined by the arrow **a**
 
-```
-   -- b -> c == (->) b c == a b c where a == (->)
-   --            ______                     ______ 
-   --           |     |                     |     |
-   --  input -> |  f  | -> output  ==  b -> |  a  | -> c
-   --           |_____|                     |_____|
-   --
-   -- (a b c . a d b) == (a b c <<< a d b) == (a d b >>> a b c) == a d c
-   --
-   --     ___________________________
-   --     |  ______   adc    ______ |
-   --     |  |     |         |     ||
-   -- d ->|  | adb | -> b -> | abc ||-> c
-   --     |  |_____|         |_____||
-   --     |_________________________|
-   --    
+```haskell
+-- b -> c == (->) b c == a b c where a == (->)
+--            ______                     ______ 
+--           |     |                     |     |
+--  input -> |  f  | -> output  ==  b -> |  a  | -> c
+--           |_____|                     |_____|
+--
+-- (a b c . a d b) == (a b c <<< a d b) == (a d b >>> a b c) == a d c
+--
+--     ___________________________
+--     |  ______   adc    ______ |
+--     |  |     |         |     ||
+-- d ->|  | adb | -> b -> | abc ||-> c
+--     |  |_____|         |_____||
+--     |_________________________|
+--    
 ```
 
 Just like functions arrows can be composed and evaluated and there are arrow combinators which can be used to connect together networks
@@ -107,8 +107,8 @@ evolved arrow which can be used in the next evaluation to produce a different re
 arrow which may be updated and returned in the new arrow to have an effect.
 
 ```haskell
-    newtype Auto b c = Auto (b -> (c, Auto b c))
-    runAuto (Auto a) b = let (c, newAuto) = a b in (c, newAuto)
+newtype Auto b c = Auto (b -> (c, Auto b c))
+runAuto (Auto a) b = let (c, newAuto) = a b in (c, newAuto)
 ```
 [John Hughes]: http://www.haskell.org/arrows/
 [Arrows]: http://en.wikibooks.org/wiki/Haskell/Understanding_arrows 
@@ -128,8 +128,8 @@ and **m** being the type of the Monad the wire inhabits. For your application or
 fix **e** and **m** to specific types.
 
 ```haskell
-    data Wire e m a b 
-    type Event e m a = Wire e m a a
+data Wire e m a b 
+type Event e m a = Wire e m a a
 ```
 
 Behaviours are represented in Netwire as wires from **a** to **b** and events as wires from **a** to **a**. So the wires map obviously to
@@ -156,9 +156,9 @@ for type level programming.
 You can define a **Field** as a combination of a type level string and another type. This is a distinct type. You can then define type
 level lists of these fields to represent a record or **PlainRec**/**Rec** type. 
 
-```Haskell
-    Field :: "name" ::: String --- a distinct field type with symbol name "name"
-    type LifeForm = ["name" ::: String, "age" ::: Int, "sleeping" ::: Bool] -- an example of a record using vinyl
+```haskell
+Field :: "name" ::: String --- a distinct field type with symbol name "name"
+type LifeForm = ["name" ::: String, "age" ::: Int, "sleeping" ::: Bool] -- an example of a record using vinyl
 ```
 
 [Vinyl-gl][] makes use of the fact that you tagged types with strings literals and can define arbitrary combinations of these to allow you
@@ -185,10 +185,10 @@ would certainly have made the wires pure, but rather the effect free Reader Mona
 without introducing dependency on effects. The environment holds all the available resources and also the results of the GLFW
 callbacks. How do I draw stuff then, well the main wire produces a stream of lists of IO actions.
 
-```Haskell
-    type WireM' = WireM ReadAppM        -- The type of wires in the app
-    type EventM' a = EventM ReadAppM a  -- The type of events in the app
-    mainW :: WireM' a [IO()]            -- The main wire takes nothing but produces IO actions
+```haskell
+type WireM' = WireM ReadAppM        -- The type of wires in the app
+type EventM' a = EventM ReadAppM a  -- The type of events in the app
+mainW :: WireM' a [IO()]            -- The main wire takes nothing but produces IO actions
 ```
 
 I wanted to make it easy to register and update GLFW callbacks as well as the other resources which would be available and I wanted to be
@@ -196,29 +196,29 @@ flexible with which resource are available. I decided to use vinyl records to re
 to iterate over them and initialize them.
 
 ```haskell
-    -- Our application record consisting of a set of call back data, a function to update
-    -- the call back data, a set IO actions that may be used to draw things to screen and 
-    -- the initial width and height of the screen.
-    type App = PlainRec [Callbacks, CallbacksUpdater, Renderables, InitWidthHeight]
+-- Our application record consisting of a set of call back data, a function to update
+-- the call back data, a set IO actions that may be used to draw things to screen and 
+-- the initial width and height of the screen.
+type App = PlainRec [Callbacks, CallbacksUpdater, Renderables, InitWidthHeight]
 
-    -- The Renderables field contains all the available renderables (things that can be drawn)
-    -- the elements of the record are instantiated through CreateRenderable class
-    type Renderables = "Renderables" ::: PlainRec '[DrawUnitBox]
-    renderables :: Renderables
-    renderables = Field
+-- The Renderables field contains all the available renderables (things that can be drawn)
+-- the elements of the record are instantiated through CreateRenderable class
+type Renderables = "Renderables" ::: PlainRec '[DrawUnitBox]
+renderables :: Renderables
+renderables = Field
 
-    -- Class defines function used to create a renderable in Renderables
-    class CreateRenderable a where createRenderable :: Shaders -> IO (PlainRec '[a])
+-- Class defines function used to create a renderable in Renderables
+class CreateRenderable a where createRenderable :: Shaders -> IO (PlainRec '[a])
 
-    -- Class used to iterate over the renderables in Renderables
-    class CreateRenderables a where createRenderables :: Shaders -> IO a
+-- Class used to iterate over the renderables in Renderables
+class CreateRenderables a where createRenderables :: Shaders -> IO a
 
-    -- CreateRenderables for empty rec is empty
-    instance CreateRenderables (PlainRec '[]) where createRenderables _ = return $ RNil
+-- CreateRenderables for empty rec is empty
+instance CreateRenderables (PlainRec '[]) where createRenderables _ = return $ RNil
 
-    -- CreateRenderables for rec is CreateRenderable for the head prefixed to CrreateRenderables for the tail
-    instance (CreateRenderable f, CreateRenderables (PlainRec rs)) => CreateRenderables (PlainRec (f ': rs)) where
-            createRenderables ss = (V.<+>) <$> createRenderable ss <*> createRenderables ss
+-- CreateRenderables for rec is CreateRenderable for the head prefixed to CrreateRenderables for the tail
+instance (CreateRenderable f, CreateRenderables (PlainRec rs)) => CreateRenderables (PlainRec (f ': rs)) where
+        createRenderables ss = (V.<+>) <$> createRenderable ss <*> createRenderables ss
 `````
 
 The flow of the application is then as follows:
@@ -236,42 +236,42 @@ easy to register callbacks with GLFW and to store the results in my Reader Monad
 wire events. On one of the blogs I read I got introduced to the idea of queueing up the callback results using STM and then processing them
 again later. I evolved that idea into this.
 
-```
-    -- Set a GLFW call back using a lens to store the accumulated values in some type
-    setCallBackGLFW :: forall c s m. (MonadIO m, CurryGLFW c)   
-                    => (Maybe c -> IO())                        -- The specific call back registration function
-                    -> Lens' s [TplGLFW c]                      -- The lens allowing us to store the result
-                    -> m (s -> m s)                             -- The resultant updater function transfering callback results
-    setCallBackGLFW f l = do
-        -- Create the uncurried call back and the update function which are glued together
-        (cb, upd) <- glueCbGLFW l
-        -- set the call back
-        liftIO $ f (Just (curryGLFW cb))
-        return upd
+```haskell
+-- Set a GLFW call back using a lens to store the accumulated values in some type
+setCallBackGLFW :: forall c s m. (MonadIO m, CurryGLFW c)   
+                => (Maybe c -> IO())                        -- The specific call back registration function
+                -> Lens' s [TplGLFW c]                      -- The lens allowing us to store the result
+                -> m (s -> m s)                             -- The resultant updater function transfering callback results
+setCallBackGLFW f l = do
+    -- Create the uncurried call back and the update function which are glued together
+    (cb, upd) <- glueCbGLFW l
+    -- set the call back
+    liftIO $ f (Just (curryGLFW cb))
+    return upd
 
-    -- Take a lens form some type to a list of tuples and return two functions
-    -- the one function adds values to the list as an IO action
-    -- the other function empties the list and modifies the type using the lens 
-    glueCbGLFW :: MonadIO m => Lens' s [t] -> m (t -> IO (), s -> m s)
-    glueCbGLFW l = do
-            -- an STM TVar used communicate between the two functions
-            var <- liftIO $ newTVarIO ([] :: [t])
-            let -- The call back appends new tuple values to the list
-                cb t = atomically . flip modifyTVar' (t:) $ var
-                -- The updater set the value referenced by the lens and clears the list in the TVar
-                upd s = (liftIO $ atomically . flip swapTVar [] $ var) >>= (\ts -> return $ set l ts s)
-            return (cb, upd)
+-- Take a lens form some type to a list of tuples and return two functions
+-- the one function adds values to the list as an IO action
+-- the other function empties the list and modifies the type using the lens 
+glueCbGLFW :: MonadIO m => Lens' s [t] -> m (t -> IO (), s -> m s)
+glueCbGLFW l = do
+        -- an STM TVar used communicate between the two functions
+        var <- liftIO $ newTVarIO ([] :: [t])
+        let -- The call back appends new tuple values to the list
+            cb t = atomically . flip modifyTVar' (t:) $ var
+            -- The updater set the value referenced by the lens and clears the list in the TVar
+            upd s = (liftIO $ atomically . flip swapTVar [] $ var) >>= (\ts -> return $ set l ts s)
+        return (cb, upd)
 
-    -- Example of call back registration
-    -- The type which stores the results of the window size call back for this instant
-    type CbWindowSize = "WindowSizeCallback" ::: [(GLFW.Window, Int, Int)]
-    cbWindowSize :: CbWindowSize
-    cbWindowSize = Field 
-    instance RegisterCallback CbWindowSize where 
-            registerCallback _ win = setCallBackGLFW (GLFW.setWindowSizeCallback win) (rLens callbacks . rLens cbWindowSize)
+-- Example of call back registration
+-- The type which stores the results of the window size call back for this instant
+type CbWindowSize = "WindowSizeCallback" ::: [(GLFW.Window, Int, Int)]
+cbWindowSize :: CbWindowSize
+cbWindowSize = Field 
+instance RegisterCallback CbWindowSize where 
+        registerCallback _ win = setCallBackGLFW (GLFW.setWindowSizeCallback win) (rLens callbacks . rLens cbWindowSize)
 
-    -- Given a lens produce a wire which provides the environment value at the current instant
-    readW :: (Lens' App b) -> WireM' a b
+-- Given a lens produce a wire which provides the environment value at the current instant
+readW :: (Lens' App b) -> WireM' a b
 ```
 So you define a Vinyl type for your callback and an instance for **RegisterCallback** which will register it and make the results
 available in your application Reader Monad which you can access using the **readW**.
@@ -288,46 +288,46 @@ list of shaders got passed into the function to construct the list of renderable
 with different vertex shaders to give me renderables, but I only had one renderable. 
 
 ```haskell
-    -- Take a shader and some geometry and return an action which takes a record of shader values and renders it
-    makeRenderable :: (ViableVertex (PlainRec ves), UniformFields (PlainRec svs))
-                   => GLU.ShaderProgram                 -- The shader program
-                   -> ([PlainRec ves], [GLU.Word32])    -- The geometry consisting of vertexes and indexes
-                   -> IO (PlainRec svs -> IO())         -- The function taking shader values and rendering 
+-- Take a shader and some geometry and return an action which takes a record of shader values and renders it
+makeRenderable :: (ViableVertex (PlainRec ves), UniformFields (PlainRec svs))
+               => GLU.ShaderProgram                 -- The shader program
+               -> ([PlainRec ves], [GLU.Word32])    -- The geometry consisting of vertexes and indexes
+               -> IO (PlainRec svs -> IO())         -- The function taking shader values and rendering 
 
-    -- loading a shader
-    type Simple2D = "Simple2D" ::: GLU.ShaderProgram
-    simple2D :: Simple2D
-    simple2D = Field
-    instance LoadShader Simple2D where 
-        loadShader = (simple2D =:) 
-                  <$> GLU.simpleShaderProgramWith  ("Simple2D.vert") ("Simple2D.frag") (\_-> printGlErrors)
-    
-    -- Shader value for
-    type MWorldViewProj2D = "mWorldViewProj2D" ::: M44 CFloat -- Associated with mWorldViewProj2D uniform shader value
-    mWorldViewProj2D :: MWorldViewProj2D
-    mWorldViewProj2D = Field
+-- loading a shader
+type Simple2D = "Simple2D" ::: GLU.ShaderProgram
+simple2D :: Simple2D
+simple2D = Field
+instance LoadShader Simple2D where 
+    loadShader = (simple2D =:) 
+              <$> GLU.simpleShaderProgramWith  ("Simple2D.vert") ("Simple2D.frag") (\_-> printGlErrors)
 
-    -- create the renderable using the shader and a utility function to make a box geometry
-    type DrawUnitBox = "DrawUnitBox" ::: (PlainRec [MWorldViewProj2D, VColour] -> IO ())
-    drawUnitBox :: DrawUnitBox
-    drawUnitBox = Field
-    instance CreateRenderable DrawUnitBox where
-            createRenderable ss = (drawUnitBox =:) <$> (makeRenderable (ss ^. rLens simple2D) $ makeBox (V2 1 1))
+-- Shader value for
+type MWorldViewProj2D = "mWorldViewProj2D" ::: M44 CFloat -- Associated with mWorldViewProj2D uniform shader value
+mWorldViewProj2D :: MWorldViewProj2D
+mWorldViewProj2D = Field
 
-    -- vertex data
-    type VPosition2D = "vPosition2D" ::: V2 CFloat      -- Associated with vPosition2D vertex element in the shader
-    vPosition2D :: VPosition2D
-    vPosition2D = Field
-    -- function creates vertex data for a box 
-    makeBox  :: V2 CFloat                                    -- The extents 
-             -> ([PlainRec '[VPosition2D]], [GLU.Word32]) -- The geometry's vertexes and indexes
-    
+-- create the renderable using the shader and a utility function to make a box geometry
+type DrawUnitBox = "DrawUnitBox" ::: (PlainRec [MWorldViewProj2D, VColour] -> IO ())
+drawUnitBox :: DrawUnitBox
+drawUnitBox = Field
+instance CreateRenderable DrawUnitBox where
+        createRenderable ss = (drawUnitBox =:) <$> (makeRenderable (ss ^. rLens simple2D) $ makeBox (V2 1 1))
 
-    -- Take a shader and some geometry and return an action which takes a record of shader values and renders it
-    makeRenderable :: (ViableVertex (PlainRec ves), UniformFields (PlainRec svs))
-                   => GLU.ShaderProgram                 -- The shader program
-                   -> ([PlainRec ves], [GLU.Word32])    -- The geometry consisting of vertexes and indexes
-                   -> IO (PlainRec svs -> IO())         -- The function taking shader values and rendering 
+-- vertex data
+type VPosition2D = "vPosition2D" ::: V2 CFloat      -- Associated with vPosition2D vertex element in the shader
+vPosition2D :: VPosition2D
+vPosition2D = Field
+-- function creates vertex data for a box 
+makeBox  :: V2 CFloat                                    -- The extents 
+         -> ([PlainRec '[VPosition2D]], [GLU.Word32]) -- The geometry's vertexes and indexes
+
+
+-- Take a shader and some geometry and return an action which takes a record of shader values and renders it
+makeRenderable :: (ViableVertex (PlainRec ves), UniformFields (PlainRec svs))
+               => GLU.ShaderProgram                 -- The shader program
+               -> ([PlainRec ves], [GLU.Word32])    -- The geometry consisting of vertexes and indexes
+               -> IO (PlainRec svs -> IO())         -- The function taking shader values and rendering 
 ```
 
 The vertex data is represented as a list of vinyl records of storable types where the name tags of the fields are the same as the names
@@ -349,48 +349,48 @@ and a list of possible new things. So if a top level wire produced more things t
 inhibits is removed.
 
 ```haskell
-    -- The top level sum type
-    data Thing = BouncingBox Box | Border Box | Paddle Box | Bullet Box deriving Show
+-- The top level sum type
+data Thing = BouncingBox Box | Border Box | Paddle Box | Bullet Box deriving Show
 
-    -- Wrap the top level wires wich take the list of other thins and produces an action a thing and a list of possible new things.
-    newtype ThingWire = ThingWire {  unThingWire :: WireM' [Thing] ( IO(), (Thing, [ThingWire]) )  } 
-    
-    stepThingWires :: WireM' [ThingWire] [IO()]
-    stepThingWires = mkStateM ([],[]) stepWs
-        where
-            stepWs :: Time
-                   -> (  [ThingWire], ( [(Thing, ThingWire)], [ThingWire] )  )
-                   -> ReadAppM (  Either LastException [IO()], ( [(Thing, ThingWire)], [ThingWire] )  )
-    
-            stepWs dt (ews, (tws, iws)) = do
-                    atwsO <- connect [] tws
-                    atwsNE <- map fromJust . filter isJust <$> sequence (map (stepW tws) ews)
-                    atwsNI <- map fromJust . filter isJust <$> sequence (map (stepW tws) iws)
-                    case atwsO ++ atwsNE ++ atwsNI of
-                        -- nothing so inhibit
-                        [] -> return (Left mempty, ([],[]))
-                        -- something so return actions
-                        rs -> return ( Right . map (^._1) $ rs
-                        -- and state for next update
-                                     , (map ((^._2) &&& (^._3) >>^ uncurry (,)) &&& concatMap (^._4) >>^ uncurry (,)) rs
-                                     )
-                where
-                    connect :: [(Thing, ThingWire)] -> [(Thing, ThingWire)] -> ReadAppM [(IO(), Thing, ThingWire, [ThingWire])]
-                    connect _ [] = return []
-                    connect ls (c@(_,w):rs) = do
-                            s <- (stepW (ls ++ rs) w) 
-                            r <- (connect (c:ls) rs)
-                            case s of
-                                Nothing -> return  r
-                                Just a -> return (a : r)
-    
-                    stepW :: [(Thing, ThingWire)] -> ThingWire -> ReadAppM (Maybe (IO(), Thing, ThingWire, [ThingWire]))
-                    stepW tws' w  = do 
-                        let ts = map fst tws'
-                        (r, w') <- stepWire (unThingWire w) dt ts
-                        case r of
-                            Left _ -> return $ Nothing
-                            Right (a, (t, nws)) -> return $ Just (a, t, ThingWire w', nws)
+-- Wrap the top level wires wich take the list of other thins and produces an action a thing and a list of possible new things.
+newtype ThingWire = ThingWire {  unThingWire :: WireM' [Thing] ( IO(), (Thing, [ThingWire]) )  } 
+
+stepThingWires :: WireM' [ThingWire] [IO()]
+stepThingWires = mkStateM ([],[]) stepWs
+    where
+        stepWs :: Time
+               -> (  [ThingWire], ( [(Thing, ThingWire)], [ThingWire] )  )
+               -> ReadAppM (  Either LastException [IO()], ( [(Thing, ThingWire)], [ThingWire] )  )
+
+        stepWs dt (ews, (tws, iws)) = do
+                atwsO <- connect [] tws
+                atwsNE <- map fromJust . filter isJust <$> sequence (map (stepW tws) ews)
+                atwsNI <- map fromJust . filter isJust <$> sequence (map (stepW tws) iws)
+                case atwsO ++ atwsNE ++ atwsNI of
+                    -- nothing so inhibit
+                    [] -> return (Left mempty, ([],[]))
+                    -- something so return actions
+                    rs -> return ( Right . map (^._1) $ rs
+                    -- and state for next update
+                                 , (map ((^._2) &&& (^._3) >>^ uncurry (,)) &&& concatMap (^._4) >>^ uncurry (,)) rs
+                                 )
+            where
+                connect :: [(Thing, ThingWire)] -> [(Thing, ThingWire)] -> ReadAppM [(IO(), Thing, ThingWire, [ThingWire])]
+                connect _ [] = return []
+                connect ls (c@(_,w):rs) = do
+                        s <- (stepW (ls ++ rs) w) 
+                        r <- (connect (c:ls) rs)
+                        case s of
+                            Nothing -> return  r
+                            Just a -> return (a : r)
+
+                stepW :: [(Thing, ThingWire)] -> ThingWire -> ReadAppM (Maybe (IO(), Thing, ThingWire, [ThingWire]))
+                stepW tws' w  = do 
+                    let ts = map fst tws'
+                    (r, w') <- stepWire (unThingWire w) dt ts
+                    case r of
+                        Left _ -> return $ Nothing
+                        Right (a, (t, nws)) -> return $ Just (a, t, ThingWire w', nws)
 ```
 
 Events
@@ -403,14 +403,14 @@ through them.
 
 ```haskell
 -- Create a wire event the produces only when the specified key has been pressed
-    keyDownE :: GLFW.Key -> EventM' a
-    keyDownE k =  passOver $ require pressed . readW (rLens callbacks . rLens cbKey)
-        where
-            pressed = not . null . filter (\t -> (t^._2 == k && t^._4 == GLFW.KeyState'Pressed))
+keyDownE :: GLFW.Key -> EventM' a
+keyDownE k =  passOver $ require pressed . readW (rLens callbacks . rLens cbKey)
+    where
+        pressed = not . null . filter (\t -> (t^._2 == k && t^._4 == GLFW.KeyState'Pressed))
 
-    -- take some wire turning it into an identiy wire but retaining the argument wires ihibition properties
-    passOver :: WireM' a b -> EventM' a
-    passOver w = fst <$> (id &&& w)
+-- take some wire turning it into an identiy wire but retaining the argument wires ihibition properties
+passOver :: WireM' a b -> EventM' a
+passOver w = fst <$> (id &&& w)
 ```
 
 The other thing that got me a bit was generating an event which depends on a previous event and for that I used the **switch** construct.
@@ -418,17 +418,17 @@ So when the key is pressed it produces an event wire which produces as long as t
 wire.
 
 ```haskell
-    keyHeld :: GLFW.Key -> EventM' a
-    keyHeld k = switch (pure ( untilKeyUpE k) . keyDownE k) (inhibit $ mempty)
+keyHeld :: GLFW.Key -> EventM' a
+keyHeld k = switch (pure ( untilKeyUpE k) . keyDownE k) (inhibit $ mempty)
 ```
 
 Sometimes you would want to switch your behaviour based on a choice of events and for this you use **<|>** since wires are Alternative 
 Applicative Functors.
 
 ```haskell
-    vel =  (keyHeld GLFW.Key'Left) . pure (V2 (-1.5) 0.0)   -- if key left produce negative x velocity
-        <|> (keyHeld GLFW.Key'Right) . pure (V2  1.5 0.0)   -- else if key right produce positive x velocity
-        <|> pure (V2 0 0)                                   -- else produce zero velocity
+vel =  (keyHeld GLFW.Key'Left) . pure (V2 (-1.5) 0.0)   -- if key left produce negative x velocity
+    <|> (keyHeld GLFW.Key'Right) . pure (V2  1.5 0.0)   -- else if key right produce positive x velocity
+    <|> pure (V2 0 0)                                   -- else produce zero velocity
 ```
 
 Behaviours
@@ -439,13 +439,13 @@ can chain them using function composition, you can compose using Applicative and
 operators. There is also special arrow syntax which is especially handy when wanting to use local feedback or recursion.
 
 ```haskell
-    integralV :: (Additive f, Fractional a)
-              => f a                        -- The constant of integration (starting point)
-              -> WireM' (f a) (f a)         -- Wire that produces the integral of its input signal
-    integralV c = proc v -> do
-        rec
-            v' <- delay zero . arr (uncurry  (^+^)) . first (arr (uncurry (^*)) . (id &&& realToFrac <$> dtime))  -< (v,v')
-        returnA -< c ^+^ v'
+integralV :: (Additive f, Fractional a)
+          => f a                        -- The constant of integration (starting point)
+          -> WireM' (f a) (f a)         -- Wire that produces the integral of its input signal
+integralV c = proc v -> do
+    rec
+        v' <- delay zero . arr (uncurry  (^+^)) . first (arr (uncurry (^*)) . (id &&& realToFrac <$> dtime))  -< (v,v')
+    returnA -< c ^+^ v'
 ```
 
 The **rec** key word is required when there is a recursive dependency between the wires. Do note that in general you will need to use a 
@@ -455,30 +455,30 @@ and handle the state, I was doing this in the beginning but feel implicitly capt
 keep your wires short and to the point. Here is an example of my most complex wire.
 
 ```haskell
-    paddleW :: WireM' [Thing] (IO (), (Thing, [ThingWire]))
-    paddleW = proc ts -> do
-            rec
-                v   <- vel -< ()                                        -- we get our velocity from key held events
-                cs  <- collisionsFiltered borderOnly -< (t,ts)          -- we collide only with border things
-                -- we integrate our velocity to get position and reflect velocity when colliding
-                p   <- integralV (V2 0 (-0.8)) . reflectVel -< (v, cs)  
-                d   <- drawBoxW extent (V4 0 0 1 1) -< p                -- we draw a box at paddle position
-                t   <- Paddle ^<< flip Box extent ^<< id  -< p          -- we let the rest of the things know where we are
-                -- we generate new bullet wire by pressing spacebar using our position and our x-velocity
-                bs  <- fireBullet -< (p,v)                              
-            returnA -< (d, (t,bs))                                      -- (OurDrawAction, (UpdatedUs, NewBullets))
-        where
-            extent = V2 0.25 0.1
-    
-            vel :: WireM' a Velocity
-            vel =  (keyHeld GLFW.Key'Left) . pure (V2 (-1.5) 0.0)
-               <|> (keyHeld GLFW.Key'Right) . pure (V2  1.5 0.0)
-               <|> pure (V2 0 0)
-    
-            fireBullet :: WireM' (Position, Velocity) [ThingWire]
-            fireBullet =  (keyDownE GLFW.Key'Space) . arr ((:[]) . ThingWire . uncurry bulletW) . arr (_2._y .~ 1) . arr (_1._y .~ -0.75)
-                      <|> pure []
-            
-            borderOnly (Border _) = True
-            borderOnly _  = False
+paddleW :: WireM' [Thing] (IO (), (Thing, [ThingWire]))
+paddleW = proc ts -> do
+        rec
+            v   <- vel -< ()                                        -- we get our velocity from key held events
+            cs  <- collisionsFiltered borderOnly -< (t,ts)          -- we collide only with border things
+            -- we integrate our velocity to get position and reflect velocity when colliding
+            p   <- integralV (V2 0 (-0.8)) . reflectVel -< (v, cs)  
+            d   <- drawBoxW extent (V4 0 0 1 1) -< p                -- we draw a box at paddle position
+            t   <- Paddle ^<< flip Box extent ^<< id  -< p          -- we let the rest of the things know where we are
+            -- we generate new bullet wire by pressing spacebar using our position and our x-velocity
+            bs  <- fireBullet -< (p,v)                              
+        returnA -< (d, (t,bs))                                      -- (OurDrawAction, (UpdatedUs, NewBullets))
+    where
+        extent = V2 0.25 0.1
+
+        vel :: WireM' a Velocity
+        vel =  (keyHeld GLFW.Key'Left) . pure (V2 (-1.5) 0.0)
+           <|> (keyHeld GLFW.Key'Right) . pure (V2  1.5 0.0)
+           <|> pure (V2 0 0)
+
+        fireBullet :: WireM' (Position, Velocity) [ThingWire]
+        fireBullet =  (keyDownE GLFW.Key'Space) . arr ((:[]) . ThingWire . uncurry bulletW) . arr (_2._y .~ 1) . arr (_1._y .~ -0.75)
+                  <|> pure []
+        
+        borderOnly (Border _) = True
+        borderOnly _  = False
 ```
