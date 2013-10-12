@@ -3,7 +3,7 @@ NetVinylGLFW (Work in progress)
 This is a small experiment application used to explore functional reactive game programming in Haskell using the Netwire, Vinyl, Vinyl-GL, 
 Lens, Linear and GLFW-b packages. I is also did it to have something for show and tell at my functional programming users group.
 
-**Disclaimer**: If you accidentally stumble upon this page do take note that I am still a novice Haskaller, and that I am capturing 
+**Disclaimer**: If you accidentally stumble upon this page do take note that I am still a novice Haskeller, and that I am capturing 
 here my limited understanding of things, but hopefully you might find something valuable here like I have when I stumbled upon so 
 many other resources. On that note here is a list of some resources (that I can remember) that helped me.
 * [Postmodern Haskell and OpenGL: Introducing vinyl-gl](http://www.arcadianvisions.com/blog/?p=388)
@@ -182,7 +182,7 @@ The structure of things
 I wanted to keep the game loop pure and not just because the application is in Haskell but so that it would be possible to evolve it into
 a parallel game loop sometime in the future. This had an impact on the Monad chosen for the wires. I did not go for the Identity Monad, which
 would certainly have made the wires pure, but rather the effect free Reader Monad. This allowed me to pass the environment to my wires 
-without but still not introducing dependency on effects. The environment holds all the available resources and also the results of the GLFW
+without introducing dependency on effects. The environment holds all the available resources and also the results of the GLFW
 callbacks. How do I draw stuff then, well the main wire produces a stream of lists of IO actions.
 
 ```Haskell
@@ -222,7 +222,7 @@ to iterate over them and initialize them.
 `````
 
 The flow of the application is then as follows:
-1. Construct environment loading resources registering callbacks etc.
+1. Construct the environment loading resources and registering callbacks etc.
 2. Step the main wire running it inside the reader monad.
 3. Perform all the actions returned by the main wire (draw stuff).
 4. Update the environment due to GLFW callbacks.
@@ -242,6 +242,25 @@ again later. I evolved that idea into this.
                     => (Maybe c -> IO())                        -- The specific call back registration function
                     -> Lens' s [TplGLFW c]                      -- The lens allowing us to store the result
                     -> m (s -> m s)                             -- The resultant updater function transfering callback results
+    setCallBackGLFW f l = do
+        -- Create the uncurried call back and the update function which are glued together
+        (cb, upd) <- glueCbGLFW l
+        -- set the call back
+        liftIO $ f (Just (curryGLFW cb))
+        return upd
+
+    -- Take a lens form some type to a list of tuples and return two functions
+    -- the one function adds values to the list as an IO action
+    -- the other function empties the list and modifies the type using the lens 
+    glueCbGLFW :: MonadIO m => Lens' s [t] -> m (t -> IO (), s -> m s)
+    glueCbGLFW l = do
+            -- an STM TVar used communicate between the two functions
+            var <- liftIO $ newTVarIO ([] :: [t])
+            let -- The call back appends new tuple values to the list
+                cb t = atomically . flip modifyTVar' (t:) $ var
+                -- The updater set the value referenced by the lens and clears the list in the TVar
+                upd s = (liftIO $ atomically . flip swapTVar [] $ var) >>= (\ts -> return $ set l ts s)
+            return (cb, upd)
 
     -- Example of call back registration
     -- The type which stores the results of the window size call back for this instant
@@ -257,8 +276,209 @@ again later. I evolved that idea into this.
 So you define a Vinyl type for your callback and an instance for **RegisterCallback** which will register it and make the results
 available in your application Reader Monad which you can access using the **readW**.
 
+Handling resources
+--------------------------------
+The only resources that I had were shaders and vertex buffers which I combined into a single resource as a renderable which is
+a function that takes values to be passed to the shader and renders it to screen. In a serious system you would actually want to batch
+your dispatching to OpenGL based on the shaders and vertex data but that will have to be the result of future experiments.
 
+I probably unnecessarily overcomplicated the way I loaded the shaders and made the renderables. The set of available shaders I represented
+by a vinyl type list where I used a type class to iterate over them and load a shader per "shader type", but I just had one shader. The
+list of shaders got passed into the function to construct the list of renderables which would allow me to combine different vertex buffers
+with different vertex shaders to give me renderables, but I only had one renderable. 
 
+```haskell
+    -- Take a shader and some geometry and return an action which takes a record of shader values and renders it
+    makeRenderable :: (ViableVertex (PlainRec ves), UniformFields (PlainRec svs))
+                   => GLU.ShaderProgram                 -- The shader program
+                   -> ([PlainRec ves], [GLU.Word32])    -- The geometry consisting of vertexes and indexes
+                   -> IO (PlainRec svs -> IO())         -- The function taking shader values and rendering 
 
+    -- loading a shader
+    type Simple2D = "Simple2D" ::: GLU.ShaderProgram
+    simple2D :: Simple2D
+    simple2D = Field
+    instance LoadShader Simple2D where 
+        loadShader = (simple2D =:) 
+                  <$> GLU.simpleShaderProgramWith  ("Simple2D.vert") ("Simple2D.frag") (\_-> printGlErrors)
+    
+    -- Shader value for
+    type MWorldViewProj2D = "mWorldViewProj2D" ::: M44 CFloat -- Associated with mWorldViewProj2D uniform shader value
+    mWorldViewProj2D :: MWorldViewProj2D
+    mWorldViewProj2D = Field
 
+    -- create the renderable using the shader and a utility function to make a box geometry
+    type DrawUnitBox = "DrawUnitBox" ::: (PlainRec [MWorldViewProj2D, VColour] -> IO ())
+    drawUnitBox :: DrawUnitBox
+    drawUnitBox = Field
+    instance CreateRenderable DrawUnitBox where
+            createRenderable ss = (drawUnitBox =:) <$> (makeRenderable (ss ^. rLens simple2D) $ makeBox (V2 1 1))
 
+    -- vertex data
+    type VPosition2D = "vPosition2D" ::: V2 CFloat      -- Associated with vPosition2D vertex element in the shader
+    vPosition2D :: VPosition2D
+    vPosition2D = Field
+    -- function creates vertex data for a box 
+    makeBox  :: V2 CFloat                                    -- The extents 
+             -> ([PlainRec '[VPosition2D]], [GLU.Word32]) -- The geometry's vertexes and indexes
+    
+
+    -- Take a shader and some geometry and return an action which takes a record of shader values and renders it
+    makeRenderable :: (ViableVertex (PlainRec ves), UniformFields (PlainRec svs))
+                   => GLU.ShaderProgram                 -- The shader program
+                   -> ([PlainRec ves], [GLU.Word32])    -- The geometry consisting of vertexes and indexes
+                   -> IO (PlainRec svs -> IO())         -- The function taking shader values and rendering 
+```
+
+The vertex data is represented as a list of vinyl records of storable types where the name tags of the fields are the same as the names
+of the vertex inputs in the shader and the types are convertible to the shader types. Vinyl-gl takes care of working out how to upload 
+the data to OpenGL and will give you an error if anything does no match up. The same is true for the shader values that will be uploaded
+to the shader, they are represented as a vinyl record.
+
+Dealing with a dynamic set of wires
+------------------------------------
+Netwire allows you to switch wires due to events but this only allows you swap out a sub network. Granted the subnetwork could be as complex
+as you like and depend on the switching node's input, but I thought I needed more. This is probably due to a lack of experience with Netwire.
+
+I had top level wires that represented the objects in my world and as input to them I wanted to pass in all the other objects so that they
+could react to each other. I also wanted new objects to be able to join the world or leave it and for the network to "rewire" itself. 
+
+I couldn't be bothered with proper names so my top level type was the sum type **Thing** (a thing can be one of many things). The top level
+wire **WireM' [Thing] ( IO(), (Thing, [ThingWire])** took a list of other things and produced an action, a new thing for itself
+and a list of possible new things. So if a top level wire produced more things they get added to the set of all things and any wire that
+inhibits is removed.
+
+```haskell
+    -- The top level sum type
+    data Thing = BouncingBox Box | Border Box | Paddle Box | Bullet Box deriving Show
+
+    -- Wrap the top level wires wich take the list of other thins and produces an action a thing and a list of possible new things.
+    newtype ThingWire = ThingWire {  unThingWire :: WireM' [Thing] ( IO(), (Thing, [ThingWire]) )  } 
+    
+    stepThingWires :: WireM' [ThingWire] [IO()]
+    stepThingWires = mkStateM ([],[]) stepWs
+        where
+            stepWs :: Time
+                   -> (  [ThingWire], ( [(Thing, ThingWire)], [ThingWire] )  )
+                   -> ReadAppM (  Either LastException [IO()], ( [(Thing, ThingWire)], [ThingWire] )  )
+    
+            stepWs dt (ews, (tws, iws)) = do
+                    atwsO <- connect [] tws
+                    atwsNE <- map fromJust . filter isJust <$> sequence (map (stepW tws) ews)
+                    atwsNI <- map fromJust . filter isJust <$> sequence (map (stepW tws) iws)
+                    case atwsO ++ atwsNE ++ atwsNI of
+                        -- nothing so inhibit
+                        [] -> return (Left mempty, ([],[]))
+                        -- something so return actions
+                        rs -> return ( Right . map (^._1) $ rs
+                        -- and state for next update
+                                     , (map ((^._2) &&& (^._3) >>^ uncurry (,)) &&& concatMap (^._4) >>^ uncurry (,)) rs
+                                     )
+                where
+                    connect :: [(Thing, ThingWire)] -> [(Thing, ThingWire)] -> ReadAppM [(IO(), Thing, ThingWire, [ThingWire])]
+                    connect _ [] = return []
+                    connect ls (c@(_,w):rs) = do
+                            s <- (stepW (ls ++ rs) w) 
+                            r <- (connect (c:ls) rs)
+                            case s of
+                                Nothing -> return  r
+                                Just a -> return (a : r)
+    
+                    stepW :: [(Thing, ThingWire)] -> ThingWire -> ReadAppM (Maybe (IO(), Thing, ThingWire, [ThingWire]))
+                    stepW tws' w  = do 
+                        let ts = map fst tws'
+                        (r, w') <- stepWire (unThingWire w) dt ts
+                        case r of
+                            Left _ -> return $ Nothing
+                            Right (a, (t, nws)) -> return $ Just (a, t, ThingWire w', nws)
+```
+
+Events
+--------------------------
+To generate events I created wires which queried the environment and then either inhibited or acted as the identity wire passing its input
+through to its output. This was not the first way I tried to approach it. First I had the event take any value and then either inhibit or
+produce the value. This does not compose because you cannot embed them in other networks. I think the key is to realize that events in 
+[Netwire 4][] are the same as intervals in [Netwire 5][] and that they should modulate the interval of production of the signals flowing
+through them.
+
+```haskell
+-- Create a wire event the produces only when the specified key has been pressed
+    keyDownE :: GLFW.Key -> EventM' a
+    keyDownE k =  passOver $ require pressed . readW (rLens callbacks . rLens cbKey)
+        where
+            pressed = not . null . filter (\t -> (t^._2 == k && t^._4 == GLFW.KeyState'Pressed))
+
+    -- take some wire turning it into an identiy wire but retaining the argument wires ihibition properties
+    passOver :: WireM' a b -> EventM' a
+    passOver w = fst <$> (id &&& w)
+```
+
+The other thing that got me a bit was generating an event which depends on a previous event and for that I used the **switch** construct.
+So when the key is pressed it produces an event wire which produces as long as the key is not up and initially we start with an inhibiting
+wire.
+
+```haskell
+    keyHeld :: GLFW.Key -> EventM' a
+    keyHeld k = switch (pure ( untilKeyUpE k) . keyDownE k) (inhibit $ mempty)
+```
+
+Sometimes you would want to switch your behaviour based on a choice of events and for this you use **<|>** since wires are Alternative 
+Applicative Functors.
+
+```haskell
+    vel =  (keyHeld GLFW.Key'Left) . pure (V2 (-1.5) 0.0)   -- if key left produce negative x velocity
+        <|> (keyHeld GLFW.Key'Right) . pure (V2  1.5 0.0)   -- else if key right produce positive x velocity
+        <|> pure (V2 0 0)                                   -- else produce zero velocity
+```
+
+Behaviours
+-------------------------
+Your behaviours are networks of wires modifying the signals flowing through them. You create more complex networks and behaviours by
+composing simpler ones. There are many ways you can compose the wires. You can compose them using the arrow composition operators, you
+can chain them using function composition, you can compose using Applicative and Alternative and you can even combine them using arithmetic
+operators. There is also special arrow syntax which is especially handy when wanting to use local feedback or recursion.
+
+```haskell
+    integralV :: (Additive f, Fractional a)
+              => f a                        -- The constant of integration (starting point)
+              -> WireM' (f a) (f a)         -- Wire that produces the integral of its input signal
+    integralV c = proc v -> do
+        rec
+            v' <- delay zero . arr (uncurry  (^+^)) . first (arr (uncurry (^*)) . (id &&& realToFrac <$> dtime))  -< (v,v')
+        returnA -< c ^+^ v'
+```
+
+The **rec** key word is required when there is a recursive dependency between the wires. Do note that in general you will need to use a 
+**delay** some where in your dependency chain (i.e. use the result one sample back). This can also be used to capture local state as in
+the example above (**v'**). You could also make use of **mkState** and **mkStateM** to create a custom wire where you explicitly define
+and handle the state, I was doing this in the beginning but feel implicitly capturing it is better. In general I found it is better to 
+keep your wires short and to the point. Here is an example of my most complex wire.
+
+```haskell
+    paddleW :: WireM' [Thing] (IO (), (Thing, [ThingWire]))
+    paddleW = proc ts -> do
+            rec
+                v   <- vel -< ()                                        -- we get our velocity from key held events
+                cs  <- collisionsFiltered borderOnly -< (t,ts)          -- we collide only with border things
+                -- we integrate our velocity to get position and reflect velocity when colliding
+                p   <- integralV (V2 0 (-0.8)) . reflectVel -< (v, cs)  
+                d   <- drawBoxW extent (V4 0 0 1 1) -< p                -- we draw a box at paddle position
+                t   <- Paddle ^<< flip Box extent ^<< id  -< p          -- we let the rest of the things know where we are
+                -- we generate new bullet wire by pressing spacebar using our position and our x-velocity
+                bs  <- fireBullet -< (p,v)                              
+            returnA -< (d, (t,bs))                                      -- (OurDrawAction, (UpdatedUs, NewBullets))
+        where
+            extent = V2 0.25 0.1
+    
+            vel :: WireM' a Velocity
+            vel =  (keyHeld GLFW.Key'Left) . pure (V2 (-1.5) 0.0)
+               <|> (keyHeld GLFW.Key'Right) . pure (V2  1.5 0.0)
+               <|> pure (V2 0 0)
+    
+            fireBullet :: WireM' (Position, Velocity) [ThingWire]
+            fireBullet =  (keyDownE GLFW.Key'Space) . arr ((:[]) . ThingWire . uncurry bulletW) . arr (_2._y .~ 1) . arr (_1._y .~ -0.75)
+                      <|> pure []
+            
+            borderOnly (Border _) = True
+            borderOnly _  = False
+```

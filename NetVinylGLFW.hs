@@ -340,8 +340,6 @@ intersectSegSeg s1 e1 s2 e2 = do
 
 --------------------------------------------------------------------------------
 newtype ThingWire = ThingWire {  unThingWire :: WireM' [Thing] ( IO(), (Thing, [ThingWire]) )  } 
-instance Show ThingWire where
-    show _ = "ThingWire"
 
 stepThingWires :: WireM' [ThingWire] [IO()]
 stepThingWires = mkStateM ([],[]) stepWs
@@ -500,7 +498,7 @@ paddleW = proc ts -> do
            <|> pure (V2 0 0)
 
         fireBullet :: WireM' (Position, Velocity) [ThingWire]
-        fireBullet =  (keyE GLFW.Key'Space) . arr ((:[]) . ThingWire . uncurry bulletW) . arr (_2._y .~ 1) . arr (_1._y .~ -0.75)
+        fireBullet =  (keyDownE GLFW.Key'Space) . arr ((:[]) . ThingWire . uncurry bulletW) . arr (_2._y .~ 1) . arr (_1._y .~ -0.75)
                   <|> pure []
         
         borderOnly (Border _) = True
@@ -600,23 +598,32 @@ instance RegisterCallback CbKey where
     registerCallback _ win = setCallBackGLFW (GLFW.setKeyCallback win) (rLens callbacks . rLens cbKey)
 
 -- Create a wire event the produces only when the specified key has been pressed
-keyE :: GLFW.Key -> EventM' a
-keyE k =  passOver $ require pressed . readW (rLens callbacks . rLens cbKey)
+keyDownE :: GLFW.Key -> EventM' a
+keyDownE k =  passOver $ require pressed . readW (rLens callbacks . rLens cbKey)
     where
         pressed = not . null . filter (\t -> (t^._2 == k && t^._4 == GLFW.KeyState'Pressed))
 
+-- Create a wire event the produces only when the specified key has been pressed
+untilKeyUpE :: GLFW.Key -> EventM' a
+untilKeyUpE k = passOver $ W.until pressed . readW (rLens callbacks . rLens cbKey)
+    where
+        pressed = not . null . filter (\t -> (t^._2 == k && t^._4 == GLFW.KeyState'Released))
+
+-- take some wire turning it into an identiy wire but retaining the argument wires ihibition properties
 passOver :: WireM' a b -> EventM' a
 passOver w = fst <$> (id &&& w)
 
 
+-- Create a wire event that produces while a key is pressed
 keyHeld :: GLFW.Key -> EventM' a
-keyHeld k = switch keyDown (inhibit $ mempty)
-    where
-        readKeys = readW (rLens callbacks . rLens cbKey)
-        keyDown :: WireM' a (EventM' a)
-        keyDown = (pure keyUp) . require (not . null . filter (\t -> t^._2 == k && t^._4 == GLFW.KeyState'Pressed)) . readKeys
-        keyUp :: EventM' a
-        keyUp =  passOver $ W.until (not . null . filter (\t -> t^._2 == k && t^._4 == GLFW.KeyState'Released)) . readKeys
+keyHeld k = switch (pure ( untilKeyUpE k) . keyDownE k) (inhibit $ mempty)
+{-keyHeld k = switch keyDown (inhibit $ mempty)   -- keyDown produces not keyUp events which get switched too-}
+    {-where-}
+        {-readKeys = readW (rLens callbacks . rLens cbKey)-}
+        {--- When key is pressed down produce the wire that produces until the key is lifted-}
+        {-keyDown = (pure keyUp) . require (not . null . filter (\t -> t^._2 == k && t^._4 == GLFW.KeyState'Pressed)) . readKeys-}
+        {--- produce while the key is not released-}
+        {-keyUp =  passOver $ W.until (not . null . filter (\t -> t^._2 == k && t^._4 == GLFW.KeyState'Released)) . readKeys-}
 
 -- Type for sotring the results of the window close callback for this instant
 type CbWindowClose = "WindowCloseCallback" ::: [GLFW.Window]
@@ -632,7 +639,7 @@ windowCloseE = fst <$> (id &&& require (not . null) . readW (rLens callbacks . r
 -- Wire event to indicate that the application should close, it produces only when 'esc' is pressed 
 -- or windowCloseE produces
 exitE :: EventM' a
-exitE =  keyE GLFW.Key'Escape <|> windowCloseE
+exitE =  keyDownE GLFW.Key'Escape <|> windowCloseE
 
 appendActionW :: WireM' ([IO ()], IO ()) [IO ()]
 appendActionW = arr (\(xs, x) -> x:xs)
