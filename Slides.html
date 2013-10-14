@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <meta name="author" content="Handré Stolp" />
+  <meta name="date" content="2013-10-14" />
+  <title>Haskell Reactive Game Programming with Netwire, Vinyl and OpenGL</title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+  </style>
+  <link rel="stylesheet" type="text/css" media="screen, projection, print"
+    href="http://www.w3.org/Talks/Tools/Slidy2/styles/slidy.css" />
+  <script src="http://www.w3.org/Talks/Tools/Slidy2/scripts/slidy.js"
+    charset="utf-8" type="text/javascript"></script>
+</head>
+<body>
+<div class="slide titlepage">
+  <h1 class="title">Haskell Reactive Game Programming with Netwire, Vinyl and OpenGL</h1>
+  <p class="author">
+Handré Stolp
+  </p>
+  <p class="date">14 October 2013</p>
+</div>
+<div id="introduction" class="titleslide slide section level1"><h1>Introduction</h1></div><div id="why" class="slide section level2">
+<h1>Why</h1>
+<ul class="incremental">
+<li>Why Haskell?
+<ul class="incremental">
+<li>Functional programming because its different than my OOP, imperitive, C++ background.</li>
+<li>Picked Haskell by accident</li>
+<li>Stuck with it because its scary and i like its air of &quot;computer science formalism&quot;.</li>
+<li>If I ever halfway mastser it I will become a ninja with safety goggles.</li>
+</ul></li>
+<li>Why game programming?
+<ul class="incremental">
+<li>Fun way to explore a new domain.</li>
+<li>Similar to my days job.</li>
+<li>For good or bad I know what kinds of concepts I would like to map to the functional space.</li>
+</ul></li>
+<li>Why OpenGL?
+<ul class="incremental">
+<li>Haskell has support for it.</li>
+<li>Aligned with Haskell community's tenet of portability</li>
+</ul></li>
+<li>Why Vinyl and Vinyl-GL?
+<ul class="incremental">
+<li>Modern OpenGL == No Fixed Function Pipeline</li>
+<li>Marshalling data to OpenGL is a pain</li>
+<li>Vinyl-GL makes it painless and safe.</li>
+</ul></li>
+</ul>
+</div><div id="why-1" class="slide section level2">
+<h1>Why</h1>
+<ul class="incremental">
+<li>Why GLFW-b?
+<ul class="incremental">
+<li>It just installs, which for FFI libraries isn't always the case.</li>
+<li>Makes it easy to get a window with graphics up and running.s</li>
+</ul></li>
+<li>Why FRP and why Netwire and why arrows?
+<ul class="incremental">
+<li>FRP is cool, at least it used to be, seems to be gaining coolnes again.</li>
+<li>Introduced to arrows through early Netwire tutorial.</li>
+<li>Sold by example of automaton arrow and local state.</li>
+</ul></li>
+</ul>
+</div>
+<div id="the-theory-of-crumbs" class="titleslide slide section level1"><h1>The theory of crumbs</h1></div><div id="a-little-frp" class="slide section level2">
+<h1>A little FRP</h1>
+<ul class="incremental">
+<li>Comes out of the Haskell community</li>
+<li>From late 1990s</li>
+<li>Pioneered by Conal Elliot and Paul Hudak</li>
+<li>Recent paper by Conal Elliot on Push-Pull FRP giving formal semantics and addressing implementation issues.</li>
+<li>Aims to simplify creating reactive systems (UIs, games etc)</li>
+<li>You say <em>what</em> something is not <em>how</em> to do something.</li>
+<li>You define relationships and the system ensures results upddte due to changes.</li>
+<li>Primitives
+<ul class="incremental">
+<li>Behaviours - continuous functions over time</li>
+<li>Events - discrete functions over time / streams of time value pairs</li>
+<li>Switch - switch behaviours due to event occurences</li>
+</ul></li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Behaviour</span><span class="ot"> a ::</span> <span class="dt">T</span> <span class="ot">-&gt;</span> a
+<span class="dt">Event</span><span class="ot"> a ::</span> [(<span class="dt">T</span>,a)]
+<span class="dt">Switch</span><span class="ot"> a ::</span> <span class="dt">Behaviour</span> a <span class="ot">-&gt;</span> <span class="dt">Event</span> (<span class="dt">Behaviour</span> a) <span class="ot">-&gt;</span> <span class="dt">Behaviour</span> a</code></pre>
+</div><div id="a-smidgen-of-arrows" class="slide section level2">
+<h1>A smidgen of Arrows</h1>
+<ul class="incremental">
+<li>Abstract view computation defined by John Hughes.</li>
+<li>Similar to Monads but more general.</li>
+<li>Category of morphisms ??? (but I really don't know what I am talking about here)</li>
+<li>But the important thing is functions are arrows</li>
+<li>and other arrows are like functions with super secret jet packs.</li>
+<li>An arrow is usually represented as <strong>a b c</strong> meaning
+<ul class="incremental">
+<li>arrow <strong>a</strong></li>
+<li>takes a value <strong>b</strong></li>
+<li>produces a value <strong>c</strong></li>
+<li>all happening in the context defined by the arrow <strong>a</strong></li>
+</ul></li>
+</ul>
+</div><div id="a-smidgen-of-arrows-1" class="slide section level2">
+<h1>A smidgen of Arrows</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- b -&gt; c == (-&gt;) b c == a b c where a == (-&gt;)</span>
+<span class="co">--            ______                     ______ </span>
+<span class="co">--           |     |                     |     |</span>
+<span class="co">--  input -&gt; |  f  | -&gt; output  ==  b -&gt; |  a  | -&gt; c</span>
+<span class="co">--           |_____|                     |_____|</span>
+<span class="fu">--</span>
+<span class="co">-- (a b c . a d b) == (a b c &lt;&lt;&lt; a d b) == (a d b &gt;&gt;&gt; a b c) == a d c</span>
+<span class="fu">--</span>
+<span class="co">--     ___________________________</span>
+<span class="co">--     |  ______   adc    ______ |</span>
+<span class="co">--     |  |     |         |     ||</span>
+<span class="co">-- d -&gt;|  | adb | -&gt; b -&gt; | abc ||-&gt; c</span>
+<span class="co">--     |  |_____|         |_____||</span>
+<span class="co">--     |_________________________|</span>
+<span class="co">--    </span></code></pre>
+</div><div id="a-smidgen-of-arrows-2" class="slide section level2">
+<h1>A smidgen of Arrows</h1>
+<ul class="incremental">
+<li>Just like functions arrows can be composed and evaluated</li>
+<li>Arrow combinators can be used to connect together networks of arrows</li>
+<li>Haskell also provides you with arrow notation which is similar to do notation to ease network creation.</li>
+<li>You evaluate the arrow <strong>(-&gt;) b c</strong> by providing the argument <strong>b</strong></li>
+<li>Other arrows will have special <em>run</em> functions.</li>
+<li>Example automaton arrow
+<ul class="incremental">
+<li>Evaluation produces value and new evolved arrow</li>
+<li>Evolved arrow used for next evaluation.</li>
+<li>Local state can captured in the arrow itself.</li>
+</ul></li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">Auto</span> b c <span class="fu">=</span> <span class="dt">Auto</span> (b <span class="ot">-&gt;</span> (c, <span class="dt">Auto</span> b c))
+runAuto (<span class="dt">Auto</span> a) b <span class="fu">=</span> <span class="kw">let</span> (c, newAuto) <span class="fu">=</span> a b <span class="kw">in</span> (c, newAuto)</code></pre>
+</div><div id="a-dash-of-netwire" class="slide section level2">
+<h1>A dash of Netwire</h1>
+<ul class="incremental">
+<li>Netwire is an arrow library that can be used for FRP and other forms of locally stateful programming.</li>
+<li>The version I used was version 4</li>
+<li>Version 5 still in development.</li>
+<li>Core primitive is an automaton arrow that evolves with time (thats how I see it)</li>
+<li>Its called a Wire and I think is more expressive than standard arrow semantics.</li>
+<li>A wire can either produce or inhibit</li>
+<li>If producing result of evaluation follows arrow semantics</li>
+<li>If inhibiting no output instead evaluation results in inhibition monoid.</li>
+<li>Inhibition of wire node inhibits entire sub-network.</li>
+<li>There are primitives to switch networks based on inhibition</li>
+<li>This allows you to merge sets of wires selecting the result based on wire inhibition.</li>
+</ul>
+</div><div id="a-dash-of-netwire-1" class="slide section level2">
+<h1>A dash of Netwire</h1>
+<ul class="incremental">
+<li>The wire type is <strong>Wire e m a b</strong> with.</li>
+<li><strong>Wire e m</strong> defining the type of arrow.</li>
+<li><strong>e</strong> being the type of the inhibition monoid.</li>
+<li><strong>m</strong> being the type of the Monad the wire inhabits.</li>
+<li>You would usually fix <strong>e</strong> and <strong>m</strong> to specific types.</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Wire</span> e m a b 
+<span class="kw">type</span> <span class="dt">Event</span> e m a <span class="fu">=</span> <span class="dt">Wire</span> e m a a</code></pre>
+</div><div id="a-dash-of-netwire-2" class="slide section level2">
+<h1>A dash of Netwire</h1>
+<ul class="incremental">
+<li>Behaviours wires from <strong>a</strong> to <strong>b</strong> (Straight forward).</li>
+<li>Events wires from <strong>a</strong> to <strong>a</strong> (Involves subtleties).
+<ul class="incremental">
+<li>Modulate continuous signal flowing through it by either inhibiting or producing.</li>
+<li>Netwire 4 events don't produce values</li>
+<li>To get FRP event stream modulate value producing wire with event wire or use non event wire that inhibits.</li>
+<li>Most cases FRP event stream is not what you want.</li>
+</ul></li>
+<li>Netwire 4 events are intervals in Netwire 5.</li>
+<li>Netwire 5 introduces explicit event type.</li>
+</ul>
+</div><div id="and-garnish-with-vinyl" class="slide section level2">
+<h1>And garnish with Vinyl</h1>
+<ul class="incremental">
+<li>What like in a record you play? Well yes.</li>
+<li>Provides you constructs that you can use in place of Haskell Records.</li>
+<li>It allows you to construct custom product types as type lists.</li>
+<li>Uses all kinds of extensions for type level programming.</li>
+<li><strong>Field</strong> defined a distinct type as the combination of type level string and another type.</li>
+<li><strong>Rec</strong>/<strong>PlainRec</strong> defines as type level list of fields giving you a record.</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="dt">Field</span><span class="ot"> ::</span> <span class="st">&quot;name&quot;</span> <span class="ot">::</span><span class="fu">:</span> <span class="dt">String</span> <span class="fu">---</span> a distinct field <span class="kw">type</span> with symbol name <span class="st">&quot;name&quot;</span>
+<span class="kw">type</span> <span class="dt">LifeForm</span> <span class="fu">=</span> [<span class="st">&quot;name&quot;</span> <span class="ot">::</span><span class="fu">:</span> <span class="dt">String</span>, <span class="st">&quot;age&quot;</span> <span class="ot">::</span><span class="fu">:</span> <span class="dt">Int</span>, <span class="st">&quot;sleeping&quot;</span> <span class="ot">::</span><span class="fu">:</span> <span class="dt">Bool</span>] <span class="co">-- an example of a record using vinyl</span></code></pre>
+</div><div id="and-garnish-with-vinyl-1" class="slide section level2">
+<h1>And garnish with Vinyl</h1>
+<ul class="incremental">
+<li>Vinyl-GL uses the strings literals associated with fields to match values in your shaders.</li>
+<li>It allows it to define your vertex layout automatically and check it at runtime.</li>
+<li>It allows you to automatically verify that all shader values are supplied and correct.</li>
+</ul>
+</div>
+<div id="the-experiment" class="titleslide slide section level1"><h1>The experiment</h1></div><div id="the-game-or-not-the-game" class="slide section level2">
+<h1>The game or not the game</h1>
+<ul class="incremental">
+<li>That is the question.</li>
+<li>The answer is that I spent too much time playing with scaffolding rather than defining a cool game.</li>
+<li>The basic &quot;game&quot;
+<ul class="incremental">
+<li>blue bordered area with</li>
+<li>a red and a green box bouncing around in it</li>
+<li>and a blue paddle at the bottom which</li>
+<li>you can move around</li>
+<li>and that can shoot little bullets.</li>
+<li>Everything renders to screen collides with one another and the paddle responds to keyboard input.</li>
+<li>It is very basic but at least something to experiment with.</li>
+</ul></li>
+</ul>
+</div><div id="the-game-or-not-the-game-1" class="slide section level2">
+<h1>The game or not the game</h1>
+<div class="figure">
+<img src="ScreenShot.png" title="Screen shot" alt="Screen shot" /><p class="caption">Screen shot</p>
+</div>
+</div><div id="the-structure-of-things" class="slide section level2">
+<h1>The structure of things</h1>
+<ul class="incremental">
+<li>I wanted to keep the game loop pure
+<ul class="incremental">
+<li>Not just because the application is in Haskell</li>
+<li>To parallelize it in the future.</li>
+</ul></li>
+<li>This had an impact on the Monad chosen for the wires.
+<ul class="incremental">
+<li>Did not go for Identity Monad</li>
+<li>Went for the effect free Reader Monad.</li>
+<li>This allowed me to pass the environment to my wires without introducing dependency on effects.</li>
+</ul></li>
+<li>The environment holds all the resources and results from the GLFW callbacks.</li>
+<li>How do I draw stuff then?
+<ul class="incremental">
+<li>The main wire produces a stream of lists of IO actions.</li>
+</ul></li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">type</span> <span class="dt">WireM&#39;</span> <span class="fu">=</span> <span class="dt">WireM</span> <span class="dt">ReadAppM</span>        <span class="co">-- The type of wires in the app</span>
+<span class="kw">type</span> <span class="dt">EventM&#39;</span> a <span class="fu">=</span> <span class="dt">EventM</span> <span class="dt">ReadAppM</span> a  <span class="co">-- The type of events in the app</span>
+<span class="ot">mainW ::</span> <span class="dt">WireM&#39;</span> a [<span class="dt">IO</span>()]            <span class="co">-- The main wire takes nothing but produces IO actions</span></code></pre>
+</div><div id="the-structure-of-things-1" class="slide section level2">
+<h1>The structure of things</h1>
+<ul class="incremental">
+<li>I wanted to make it easy to register callbacks and load other resources</li>
+<li>I wanted to be flexible with which resource are available.</li>
+<li>I decided to use vinyl records to represent all the data in my Reader Monad and use type classes to iterate over them and initialize them.</li>
+<li>The flow of the application is then as follows:
+<ol class="incremental" style="list-style-type: decimal">
+<li>Construct the environment loading resources and registering callbacks etc.</li>
+<li>Step the main wire running it inside the reader monad.</li>
+<li>Perform all the actions returned by the main wire (draw stuff).</li>
+<li>Update the environment due to GLFW callbacks.</li>
+<li>Repeat from step 2 until the main wire inhibits.</li>
+</ol></li>
+</ul>
+</div><div id="the-structure-of-things-2" class="slide section level2">
+<h1>The structure of things</h1>
+<p>Excerpt from code showing environment type <strong>App</strong> and the type class used to iterate over one of the top level types.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Our application record consisting of a set of call back data, a function to update</span>
+<span class="co">-- the call back data, a set IO actions that may be used to draw things to screen and </span>
+<span class="co">-- the initial width and height of the screen.</span>
+<span class="kw">type</span> <span class="dt">App</span> <span class="fu">=</span> <span class="dt">PlainRec</span> [<span class="dt">Callbacks</span>, <span class="dt">CallbacksUpdater</span>, <span class="dt">Renderables</span>, <span class="dt">InitWidthHeight</span>]
+
+<span class="co">-- The Renderables field contains all the available renderables (things that can be drawn)</span>
+<span class="co">-- the elements of the record are instantiated through CreateRenderable class</span>
+<span class="kw">type</span> <span class="dt">Renderables</span> <span class="fu">=</span> <span class="st">&quot;Renderables&quot;</span> <span class="ot">::</span><span class="fu">:</span> <span class="dt">PlainRec</span> <span class="ch">&#39;[DrawUnitBox]</span>
+<span class="ot">renderables ::</span> <span class="dt">Renderables</span>
+renderables <span class="fu">=</span> <span class="dt">Field</span>
+
+<span class="co">-- Class defines function used to create a renderable in Renderables</span>
+<span class="kw">class</span> <span class="dt">CreateRenderable</span> a <span class="kw">where</span><span class="ot"> createRenderable ::</span> <span class="dt">Shaders</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">PlainRec</span> <span class="ch">&#39;[a])</span>
+
+<span class="co">-- Class used to iterate over the renderables in Renderables</span>
+<span class="kw">class</span> <span class="dt">CreateRenderables</span> a <span class="kw">where</span><span class="ot"> createRenderables ::</span> <span class="dt">Shaders</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> a
+
+<span class="co">-- CreateRenderables for empty rec is empty</span>
+<span class="kw">instance</span> <span class="dt">CreateRenderables</span> (<span class="dt">PlainRec</span> <span class="ch">&#39;[]) where createRenderables _ = return $ RNil</span>
+
+<span class="co">-- CreateRenderables for rec is CreateRenderable for the head prefixed to CrreateRenderables for the tail</span>
+<span class="kw">instance</span> (<span class="dt">CreateRenderable</span> f, <span class="dt">CreateRenderables</span> (<span class="dt">PlainRec</span> rs)) <span class="ot">=&gt;</span> <span class="dt">CreateRenderables</span> (<span class="dt">PlainRec</span> (f <span class="ch">&#39;: rs)) where</span>
+        createRenderables ss <span class="fu">=</span> (<span class="fu">V.&lt;+&gt;</span>) <span class="fu">&lt;$&gt;</span> createRenderable ss <span class="fu">&lt;*&gt;</span> createRenderables ss</code></pre>
+</div><div id="handling-callbacks" class="slide section level2">
+<h1>Handling callbacks</h1>
+<ul class="incremental">
+<li>Dealing with callbacks is painful in Haskell even when having to hook into a nice minimalist library like GLFW-b.</li>
+<li>I wanted to make it easy to register callbacks with GLFW and to store the results in my Reader Monad</li>
+<li>Wanted to generate wire events based on callback data in my Reader Monad.</li>
+<li>A blog I read introduced the idea of queueing up the callback results using STM and processing them later.</li>
+<li>I added a helper to do this for me.
+<ul class="incremental">
+<li>You give it the callback registering function</li>
+<li>and a lens to where the tupled up arguments to the callback should be stored</li>
+<li>and it returns a function that will update the environment with the callback data.</li>
+</ul></li>
+<li>So you define a Vinyl type for your callback</li>
+<li>Add an instance for <strong>RegisterCallback</strong> where you use the helper to register the callback.</li>
+<li>Access the callback data using the <strong>readW</strong> wire and build events based on the callbacks.</li>
+</ul>
+</div><div id="handling-callbacks-1" class="slide section level2">
+<h1>Handling callbacks</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Set a GLFW call back using a lens to store the accumulated values in some type</span>
+<span class="ot">setCallBackGLFW ::</span> forall c s m<span class="fu">.</span> (<span class="dt">MonadIO</span> m, <span class="dt">CurryGLFW</span> c)   
+                <span class="ot">=&gt;</span> (<span class="dt">Maybe</span> c <span class="ot">-&gt;</span> <span class="dt">IO</span>())                        <span class="co">-- The specific call back registration function</span>
+                <span class="ot">-&gt;</span> <span class="dt">Lens&#39;</span> s [<span class="dt">TplGLFW</span> c]                      <span class="co">-- The lens allowing us to store the result</span>
+                <span class="ot">-&gt;</span> m (s <span class="ot">-&gt;</span> m s)                             <span class="co">-- The resultant updater function transfering callback results</span>
+setCallBackGLFW f l <span class="fu">=</span> <span class="kw">do</span>
+    <span class="co">-- Create the uncurried call back and the update function which are glued together</span>
+    (cb, upd) <span class="ot">&lt;-</span> glueCbGLFW l
+    <span class="co">-- set the call back</span>
+    liftIO <span class="fu">$</span> f (<span class="dt">Just</span> (curryGLFW cb))
+    return upd
+
+<span class="co">-- Take a lens form some type to a list of tuples and return two functions</span>
+<span class="co">-- the one function adds values to the list as an IO action</span>
+<span class="co">-- the other function empties the list and modifies the type using the lens </span>
+<span class="ot">glueCbGLFW ::</span> <span class="dt">MonadIO</span> m <span class="ot">=&gt;</span> <span class="dt">Lens&#39;</span> s [t] <span class="ot">-&gt;</span> m (t <span class="ot">-&gt;</span> <span class="dt">IO</span> (), s <span class="ot">-&gt;</span> m s)
+glueCbGLFW l <span class="fu">=</span> <span class="kw">do</span>
+        <span class="co">-- an STM TVar used communicate between the two functions</span>
+        var <span class="ot">&lt;-</span> liftIO <span class="fu">$</span> newTVarIO ([]<span class="ot"> ::</span> [t])
+        <span class="kw">let</span> <span class="co">-- The call back appends new tuple values to the list</span>
+            cb t <span class="fu">=</span> atomically <span class="fu">.</span> flip modifyTVar&#39; (t<span class="fu">:</span>) <span class="fu">$</span> var
+            <span class="co">-- The updater set the value referenced by the lens and clears the list in the TVar</span>
+            upd s <span class="fu">=</span> (liftIO <span class="fu">$</span> atomically <span class="fu">.</span> flip swapTVar [] <span class="fu">$</span> var) <span class="fu">&gt;&gt;=</span> (\ts <span class="ot">-&gt;</span> return <span class="fu">$</span> set l ts s)
+        return (cb, upd)
+
+<span class="co">-- Example of call back registration</span>
+<span class="co">-- The type which stores the results of the window size call back for this instant</span>
+<span class="kw">type</span> <span class="dt">CbWindowSize</span> <span class="fu">=</span> <span class="st">&quot;WindowSizeCallback&quot;</span> <span class="ot">::</span><span class="fu">:</span> [(<span class="dt">GLFW.Window</span>, <span class="dt">Int</span>, <span class="dt">Int</span>)]
+<span class="ot">cbWindowSize ::</span> <span class="dt">CbWindowSize</span>
+cbWindowSize <span class="fu">=</span> <span class="dt">Field</span> 
+<span class="kw">instance</span> <span class="dt">RegisterCallback</span> <span class="dt">CbWindowSize</span> <span class="kw">where</span> 
+        registerCallback _ win <span class="fu">=</span> setCallBackGLFW (GLFW.setWindowSizeCallback win) (rLens callbacks <span class="fu">.</span> rLens cbWindowSize)
+
+<span class="co">-- Given a lens produce a wire which provides the environment value at the current instant</span>
+<span class="ot">readW ::</span> (<span class="dt">Lens&#39;</span> <span class="dt">App</span> b) <span class="ot">-&gt;</span> <span class="dt">WireM&#39;</span> a b</code></pre>
+</div><div id="handling-resources" class="slide section level2">
+<h1>Handling resources</h1>
+<ul class="incremental">
+<li>Only resources were shaders and vertex buffers</li>
+<li>Combined into a single resource as a renderable (function taking shader values and rendering to screen)</li>
+<li>In a serious system you would actually want to batch your dispatching to OpenGL based on the shaders and vertex data.</li>
+<li>Probably overcomplicated way of loading the shaders and making the renderables.</li>
+<li>Available shaders represented by a vinyl type list
+<ul class="incremental">
+<li>Type class used to iterate over them</li>
+<li>Load a shader per &quot;shader type&quot;,</li>
+<li>Only had one shader.</li>
+</ul></li>
+<li>Renderables represented by vinyl type list.
+<ul class="incremental">
+<li>Type class used to iterate over them and construct them</li>
+<li>Construction function passed list of shaders</li>
+<li>Allows me to combine the set of shaders with the set of vertex buffers to get the set of renderables.</li>
+<li>Only had one vertex buffer (a square)</li>
+</ul></li>
+</ul>
+</div><div id="handling-resources-1" class="slide section level2">
+<h1>Handling resources</h1>
+<ul class="incremental">
+<li>The vertex data is represented as a list of vinyl records of storable types</li>
+<li>The name tags of the fields are the same as the names of the vertex inputs in the shader.</li>
+<li>Vinyl-GL takes care of working out how to upload the data to OpenGL</li>
+<li>Will give you an error if anything does no match up.</li>
+<li>The same is true for the shader values that will be uploaded to the shader,</li>
+<li>Shader values are represented as a vinyl record.</li>
+</ul>
+</div><div id="handling-resources-2" class="slide section level2">
+<h1>Handling resources</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Take a shader and some geometry and return an action which takes a record of shader values and renders it</span>
+<span class="ot">makeRenderable ::</span> (<span class="dt">ViableVertex</span> (<span class="dt">PlainRec</span> ves), <span class="dt">UniformFields</span> (<span class="dt">PlainRec</span> svs))
+               <span class="ot">=&gt;</span> <span class="dt">GLU.ShaderProgram</span>                 <span class="co">-- The shader program</span>
+               <span class="ot">-&gt;</span> ([<span class="dt">PlainRec</span> ves], [<span class="dt">GLU.Word32</span>])    <span class="co">-- The geometry consisting of vertexes and indexes</span>
+               <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">PlainRec</span> svs <span class="ot">-&gt;</span> <span class="dt">IO</span>())         <span class="co">-- The function taking shader values and rendering </span>
+
+<span class="co">-- loading a shader</span>
+<span class="kw">type</span> <span class="dt">Simple2D</span> <span class="fu">=</span> <span class="st">&quot;Simple2D&quot;</span> <span class="ot">::</span><span class="fu">:</span> <span class="dt">GLU.ShaderProgram</span>
+<span class="ot">simple2D ::</span> <span class="dt">Simple2D</span>
+simple2D <span class="fu">=</span> <span class="dt">Field</span>
+<span class="kw">instance</span> <span class="dt">LoadShader</span> <span class="dt">Simple2D</span> <span class="kw">where</span> 
+    loadShader <span class="fu">=</span> (simple2D <span class="fu">=:</span>) 
+              <span class="fu">&lt;$&gt;</span> GLU.simpleShaderProgramWith  (<span class="st">&quot;Simple2D.vert&quot;</span>) (<span class="st">&quot;Simple2D.frag&quot;</span>) (\_<span class="ot">-&gt;</span> printGlErrors)
+
+<span class="co">-- Shader value for</span>
+<span class="kw">type</span> <span class="dt">MWorldViewProj2D</span> <span class="fu">=</span> <span class="st">&quot;mWorldViewProj2D&quot;</span> <span class="ot">::</span><span class="fu">:</span> <span class="dt">M44</span> <span class="dt">CFloat</span> <span class="co">-- Associated with mWorldViewProj2D uniform shader value</span>
+<span class="ot">mWorldViewProj2D ::</span> <span class="dt">MWorldViewProj2D</span>
+mWorldViewProj2D <span class="fu">=</span> <span class="dt">Field</span>
+
+<span class="co">-- create the renderable using the shader and a utility function to make a box geometry</span>
+<span class="kw">type</span> <span class="dt">DrawUnitBox</span> <span class="fu">=</span> <span class="st">&quot;DrawUnitBox&quot;</span> <span class="ot">::</span><span class="fu">:</span> (<span class="dt">PlainRec</span> [<span class="dt">MWorldViewProj2D</span>, <span class="dt">VColour</span>] <span class="ot">-&gt;</span> <span class="dt">IO</span> ())
+<span class="ot">drawUnitBox ::</span> <span class="dt">DrawUnitBox</span>
+drawUnitBox <span class="fu">=</span> <span class="dt">Field</span>
+<span class="kw">instance</span> <span class="dt">CreateRenderable</span> <span class="dt">DrawUnitBox</span> <span class="kw">where</span>
+        createRenderable ss <span class="fu">=</span> (drawUnitBox <span class="fu">=:</span>) <span class="fu">&lt;$&gt;</span> (makeRenderable (ss <span class="fu">^.</span> rLens simple2D) <span class="fu">$</span> makeBox (<span class="dt">V2</span> <span class="dv">1</span> <span class="dv">1</span>))
+
+<span class="co">-- vertex data</span>
+<span class="kw">type</span> <span class="dt">VPosition2D</span> <span class="fu">=</span> <span class="st">&quot;vPosition2D&quot;</span> <span class="ot">::</span><span class="fu">:</span> <span class="dt">V2</span> <span class="dt">CFloat</span>      <span class="co">-- Associated with vPosition2D vertex element in the shader</span>
+<span class="ot">vPosition2D ::</span> <span class="dt">VPosition2D</span>
+vPosition2D <span class="fu">=</span> <span class="dt">Field</span>
+<span class="co">-- function creates vertex data for a box </span>
+<span class="ot">makeBox  ::</span> <span class="dt">V2</span> <span class="dt">CFloat</span>                                    <span class="co">-- The extents </span>
+         <span class="ot">-&gt;</span> ([<span class="dt">PlainRec</span> <span class="ch">&#39;[VPosition2D]], [GLU.Word32]) -- The geometry&#39;</span>s vertexes and indexes
+
+
+<span class="co">-- Take a shader and some geometry and return an action which takes a record of shader values and renders it</span>
+<span class="ot">makeRenderable ::</span> (<span class="dt">ViableVertex</span> (<span class="dt">PlainRec</span> ves), <span class="dt">UniformFields</span> (<span class="dt">PlainRec</span> svs))
+               <span class="ot">=&gt;</span> <span class="dt">GLU.ShaderProgram</span>                 <span class="co">-- The shader program</span>
+               <span class="ot">-&gt;</span> ([<span class="dt">PlainRec</span> ves], [<span class="dt">GLU.Word32</span>])    <span class="co">-- The geometry consisting of vertexes and indexes</span>
+               <span class="ot">-&gt;</span> <span class="dt">IO</span> (<span class="dt">PlainRec</span> svs <span class="ot">-&gt;</span> <span class="dt">IO</span>())         <span class="co">-- The function taking shader values and rendering </span></code></pre>
+</div><div id="dealing-with-a-dynamic-set-of-wires" class="slide section level2">
+<h1>Dealing with a dynamic set of wires</h1>
+<ul class="incremental">
+<li>Netwire allows you to switch wires due to events</li>
+<li>This only allows you swap out a sub network</li>
+<li>Subnetwork could be as complex as you like</li>
+<li>Subnetwork can depend on the switching wire's input</li>
+<li>I thought I needed more.
+<ul class="incremental">
+<li>Probably due to a lack of experience with Netwire.</li>
+</ul></li>
+</ul>
+</div><div id="dealing-with-a-dynamic-set-of-wires-1" class="slide section level2">
+<h1>Dealing with a dynamic set of wires</h1>
+<ul class="incremental">
+<li>Top level wires represent objects in world.</li>
+<li>The input to each wire includes the previous results of all others
+<ul class="incremental">
+<li>(so they can react to each other).</li>
+</ul></li>
+<li>Top level sum type called <strong>Thing</strong> (can be one of many things)</li>
+<li>Top level wire called <strong>ThingWire</strong>
+<ul class="incremental">
+<li><strong>WireM' [Thing] ( IO(), (Thing, [ThingWire])</strong></li>
+<li>Take other things</li>
+<li>Produce IO action, itself and possible list of new things.</li>
+</ul></li>
+<li>Wire to step all top level wires (<strong>stepThingWires :: WireM' [ThingWire] [IO()]</strong>)
+<ul class="incremental">
+<li>Take set of thing wires and evolve them</li>
+<li>Results of all other wires passed to each wire</li>
+<li>Any wire that inhibits gets removed</li>
+<li>Any new wires produced gets added to set of wires</li>
+<li>If all wires inhibit then the wire inhibits.</li>
+</ul></li>
+</ul>
+</div><div id="dealing-with-a-dynamic-set-of-wires-2" class="slide section level2">
+<h1>Dealing with a dynamic set of wires</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- The top level sum type</span>
+<span class="kw">data</span> <span class="dt">Thing</span> <span class="fu">=</span> <span class="dt">BouncingBox</span> <span class="dt">Box</span> <span class="fu">|</span> <span class="dt">Border</span> <span class="dt">Box</span> <span class="fu">|</span> <span class="dt">Paddle</span> <span class="dt">Box</span> <span class="fu">|</span> <span class="dt">Bullet</span> <span class="dt">Box</span> <span class="kw">deriving</span> <span class="dt">Show</span>
+
+<span class="co">-- Wrap the top level wires wich take the list of other thins and produces an action a thing and a list of possible new things.</span>
+<span class="kw">newtype</span> <span class="dt">ThingWire</span> <span class="fu">=</span> <span class="dt">ThingWire</span> {<span class="ot">  unThingWire ::</span> <span class="dt">WireM&#39;</span> [<span class="dt">Thing</span>] ( <span class="dt">IO</span>(), (<span class="dt">Thing</span>, [<span class="dt">ThingWire</span>]) )  } 
+
+<span class="ot">stepThingWires ::</span> <span class="dt">WireM&#39;</span> [<span class="dt">ThingWire</span>] [<span class="dt">IO</span>()]
+stepThingWires <span class="fu">=</span> mkStateM ([],[]) stepWs
+    <span class="kw">where</span>
+<span class="ot">        stepWs ::</span> <span class="dt">Time</span>
+               <span class="ot">-&gt;</span> (  [<span class="dt">ThingWire</span>], ( [(<span class="dt">Thing</span>, <span class="dt">ThingWire</span>)], [<span class="dt">ThingWire</span>] )  )
+               <span class="ot">-&gt;</span> <span class="dt">ReadAppM</span> (  <span class="dt">Either</span> <span class="dt">LastException</span> [<span class="dt">IO</span>()], ( [(<span class="dt">Thing</span>, <span class="dt">ThingWire</span>)], [<span class="dt">ThingWire</span>] )  )
+
+        stepWs dt (ews, (tws, iws)) <span class="fu">=</span> <span class="kw">do</span>
+                atwsO <span class="ot">&lt;-</span> connect [] tws
+                atwsNE <span class="ot">&lt;-</span> map fromJust <span class="fu">.</span> filter isJust <span class="fu">&lt;$&gt;</span> sequence (map (stepW tws) ews)
+                atwsNI <span class="ot">&lt;-</span> map fromJust <span class="fu">.</span> filter isJust <span class="fu">&lt;$&gt;</span> sequence (map (stepW tws) iws)
+                <span class="kw">case</span> atwsO <span class="fu">++</span> atwsNE <span class="fu">++</span> atwsNI <span class="kw">of</span>
+                    <span class="co">-- nothing so inhibit</span>
+                    [] <span class="ot">-&gt;</span> return (<span class="dt">Left</span> mempty, ([],[]))
+                    <span class="co">-- something so return actions</span>
+                    rs <span class="ot">-&gt;</span> return ( <span class="dt">Right</span> <span class="fu">.</span> map (<span class="fu">^.</span>_1) <span class="fu">$</span> rs
+                    <span class="co">-- and state for next update</span>
+                                 , (map ((<span class="fu">^.</span>_2) <span class="fu">&amp;&amp;&amp;</span> (<span class="fu">^.</span>_3) <span class="fu">&gt;&gt;^</span> uncurry (,)) <span class="fu">&amp;&amp;&amp;</span> concatMap (<span class="fu">^.</span>_4) <span class="fu">&gt;&gt;^</span> uncurry (,)) rs
+                                 )
+            <span class="kw">where</span>
+<span class="ot">                connect ::</span> [(<span class="dt">Thing</span>, <span class="dt">ThingWire</span>)] <span class="ot">-&gt;</span> [(<span class="dt">Thing</span>, <span class="dt">ThingWire</span>)] <span class="ot">-&gt;</span> <span class="dt">ReadAppM</span> [(<span class="dt">IO</span>(), <span class="dt">Thing</span>, <span class="dt">ThingWire</span>, [<span class="dt">ThingWire</span>])]
+                connect _ [] <span class="fu">=</span> return []
+                connect ls (c<span class="fu">@</span>(_,w)<span class="fu">:</span>rs) <span class="fu">=</span> <span class="kw">do</span>
+                        s <span class="ot">&lt;-</span> (stepW (ls <span class="fu">++</span> rs) w) 
+                        r <span class="ot">&lt;-</span> (connect (c<span class="fu">:</span>ls) rs)
+                        <span class="kw">case</span> s <span class="kw">of</span>
+                            <span class="dt">Nothing</span> <span class="ot">-&gt;</span> return  r
+                            <span class="dt">Just</span> a <span class="ot">-&gt;</span> return (a <span class="fu">:</span> r)
+
+<span class="ot">                stepW ::</span> [(<span class="dt">Thing</span>, <span class="dt">ThingWire</span>)] <span class="ot">-&gt;</span> <span class="dt">ThingWire</span> <span class="ot">-&gt;</span> <span class="dt">ReadAppM</span> (<span class="dt">Maybe</span> (<span class="dt">IO</span>(), <span class="dt">Thing</span>, <span class="dt">ThingWire</span>, [<span class="dt">ThingWire</span>]))
+                stepW tws&#39; w  <span class="fu">=</span> <span class="kw">do</span> 
+                    <span class="kw">let</span> ts <span class="fu">=</span> map fst tws&#39;
+                    (r, w&#39;) <span class="ot">&lt;-</span> stepWire (unThingWire w) dt ts
+                    <span class="kw">case</span> r <span class="kw">of</span>
+                        <span class="dt">Left</span> _ <span class="ot">-&gt;</span> return <span class="fu">$</span> <span class="dt">Nothing</span>
+                        <span class="dt">Right</span> (a, (t, nws)) <span class="ot">-&gt;</span> return <span class="fu">$</span> <span class="dt">Just</span> (a, t, <span class="dt">ThingWire</span> w&#39;, nws)</code></pre>
+</div><div id="events" class="slide section level2">
+<h1>Events</h1>
+<ul class="incremental">
+<li>Were wires which queried the environment and then either inhibited or acted as the identity wire</li>
+<li>This was not the first way I tried to approach it.</li>
+<li>First I had the event take any value and then either inhibit or produce the value.</li>
+<li>This does not compose because you cannot embed them in other networks.</li>
+<li>The key is to realize that events in Netwire 4 are the same as intervals in Netwire 5
+<ul class="incremental">
+<li>They should modulate the interval of production of the signals flowing through them.</li>
+</ul></li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- Create a wire event the produces only when the specified key has been pressed</span>
+<span class="ot">keyDownE ::</span> <span class="dt">GLFW.Key</span> <span class="ot">-&gt;</span> <span class="dt">EventM&#39;</span> a
+keyDownE k <span class="fu">=</span>  passOver <span class="fu">$</span> require pressed <span class="fu">.</span> readW (rLens callbacks <span class="fu">.</span> rLens cbKey)
+    <span class="kw">where</span>
+        pressed <span class="fu">=</span> not <span class="fu">.</span> null <span class="fu">.</span> filter (\t <span class="ot">-&gt;</span> (t<span class="fu">^.</span>_2 <span class="fu">==</span> k <span class="fu">&amp;&amp;</span> t<span class="fu">^.</span>_4 <span class="fu">==</span> <span class="dt">GLFW.KeyState&#39;Pressed</span>))
+
+<span class="co">-- take some wire turning it into an identiy wire but retaining the argument wires ihibition properties</span>
+<span class="ot">passOver ::</span> <span class="dt">WireM&#39;</span> a b <span class="ot">-&gt;</span> <span class="dt">EventM&#39;</span> a
+passOver w <span class="fu">=</span> fst <span class="fu">&lt;$&gt;</span> (id <span class="fu">&amp;&amp;&amp;</span> w)</code></pre>
+</div><div id="events-1" class="slide section level2">
+<h1>Events</h1>
+<ul class="incremental">
+<li>Another stumble block was generating an event which depends on a previous event.</li>
+<li>For that I used the <strong>switch</strong> construct.</li>
+<li>Example was the key held event/interval</li>
+<li>So when the key is pressed it produces an event wire which produces as long as the key is not up</li>
+<li>Initially we start with an inhibiting wire.</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">keyHeld ::</span> <span class="dt">GLFW.Key</span> <span class="ot">-&gt;</span> <span class="dt">EventM&#39;</span> a
+keyHeld k <span class="fu">=</span> switch (pure ( untilKeyUpE k) <span class="fu">.</span> keyDownE k) (inhibit <span class="fu">$</span> mempty)</code></pre>
+</div><div id="events-2" class="slide section level2">
+<h1>Events</h1>
+<ul class="incremental">
+<li>Sometimes you would want to switch your behaviour based on a choice of events</li>
+<li>For this you use <strong>&lt;|&gt;</strong> since wires are Alternative Applicative Functors.</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">vel <span class="fu">=</span>  (keyHeld <span class="dt">GLFW.Key&#39;Left</span>) <span class="fu">.</span> pure (<span class="dt">V2</span> (<span class="fu">-</span><span class="dv">1</span><span class="fu">.</span><span class="dv">5</span>) <span class="dv">0</span><span class="fu">.</span><span class="dv">0</span>)   <span class="co">-- if key left produce negative x velocity</span>
+    <span class="fu">&lt;|&gt;</span> (keyHeld <span class="dt">GLFW.Key&#39;Right</span>) <span class="fu">.</span> pure (<span class="dt">V2</span>  <span class="dv">1</span><span class="fu">.</span><span class="dv">5</span> <span class="dv">0</span><span class="fu">.</span><span class="dv">0</span>)   <span class="co">-- else if key right produce positive x velocity</span>
+    <span class="fu">&lt;|&gt;</span> pure (<span class="dt">V2</span> <span class="dv">0</span> <span class="dv">0</span>)                                   <span class="co">-- else produce zero velocity</span></code></pre>
+</div><div id="behaviours" class="slide section level2">
+<h1>Behaviours</h1>
+<ul class="incremental">
+<li>Behaviours are networks of wires modifying the signals flowing through them.</li>
+<li>Create complex networks by composing simpler ones.</li>
+<li>There are many ways you can compose the wires.
+<ul class="incremental">
+<li>The arrow composition operators,</li>
+<li>Function composition</li>
+<li>The Applicative and Alternative operators</li>
+<li>Even using arithmetic operators.</li>
+</ul></li>
+<li>There is also special arrow syntax which is especially handy when wanting to use local feedback or recursion.</li>
+</ul>
+</div><div id="behaviours-1" class="slide section level2">
+<h1>Behaviours</h1>
+<ul class="incremental">
+<li>The <strong>rec</strong> key word is required when there is a recursive dependency between the wires.</li>
+<li>In general will have to use a <strong>delay</strong> somewhere in your recursive chain.</li>
+<li>Recursion can be used to capture local state (<strong>v'</strong>).
+<ul class="incremental">
+<li>Could use of <strong>mkState</strong> / <strong>mkStateM</strong> for custom wire with explicit state.</li>
+<li>I was doing this in the beginning but feel implicitly capturing it is better.</li>
+</ul></li>
+<li>In general I found it is better to keep your wires short and to the point.</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">integralV ::</span> (<span class="dt">Additive</span> f, <span class="dt">Fractional</span> a)
+          <span class="ot">=&gt;</span> f a                        <span class="co">-- The constant of integration (starting point)</span>
+          <span class="ot">-&gt;</span> <span class="dt">WireM&#39;</span> (f a) (f a)         <span class="co">-- Wire that produces the integral of its input signal</span>
+integralV c <span class="fu">=</span> proc v <span class="ot">-&gt;</span> <span class="kw">do</span>
+    rec
+        v&#39; <span class="ot">&lt;-</span> delay zero <span class="fu">.</span> arr (uncurry  (<span class="fu">^+^</span>)) <span class="fu">.</span> first (arr (uncurry (<span class="fu">^*</span>)) <span class="fu">.</span> (id <span class="fu">&amp;&amp;&amp;</span> realToFrac <span class="fu">&lt;$&gt;</span> dtime))  <span class="fu">-&lt;</span> (v,v&#39;)
+    returnA <span class="fu">-&lt;</span> c <span class="fu">^+^</span> v&#39;</code></pre>
+</div><div id="behaviours-2" class="slide section level2">
+<h1>Behaviours</h1>
+<p>Here is an example of my most complex wire.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">paddleW ::</span> <span class="dt">WireM&#39;</span> [<span class="dt">Thing</span>] (<span class="dt">IO</span> (), (<span class="dt">Thing</span>, [<span class="dt">ThingWire</span>]))
+paddleW <span class="fu">=</span> proc ts <span class="ot">-&gt;</span> <span class="kw">do</span>
+        rec
+            v   <span class="ot">&lt;-</span> vel <span class="fu">-&lt;</span> ()                                        <span class="co">-- we get our velocity from key held events</span>
+            cs  <span class="ot">&lt;-</span> collisionsFiltered borderOnly <span class="fu">-&lt;</span> (t,ts)          <span class="co">-- we collide only with border things</span>
+            <span class="co">-- we integrate our velocity to get position and reflect velocity when colliding</span>
+            p   <span class="ot">&lt;-</span> integralV (<span class="dt">V2</span> <span class="dv">0</span> (<span class="fu">-</span><span class="dv">0</span><span class="fu">.</span><span class="dv">8</span>)) <span class="fu">.</span> reflectVel <span class="fu">-&lt;</span> (v, cs)  
+            d   <span class="ot">&lt;-</span> drawBoxW extent (<span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">1</span> <span class="dv">1</span>) <span class="fu">-&lt;</span> p                <span class="co">-- we draw a box at paddle position</span>
+            t   <span class="ot">&lt;-</span> <span class="dt">Paddle</span> <span class="fu">^&lt;&lt;</span> flip <span class="dt">Box</span> extent <span class="fu">^&lt;&lt;</span> id  <span class="fu">-&lt;</span> p          <span class="co">-- we let the rest of the things know where we are</span>
+            <span class="co">-- we generate new bullet wire by pressing spacebar using our position and our x-velocity</span>
+            bs  <span class="ot">&lt;-</span> fireBullet <span class="fu">-&lt;</span> (p,v)                              
+        returnA <span class="fu">-&lt;</span> (d, (t,bs))                                      <span class="co">-- (OurDrawAction, (UpdatedUs, NewBullets))</span>
+    <span class="kw">where</span>
+        extent <span class="fu">=</span> <span class="dt">V2</span> <span class="dv">0</span><span class="fu">.</span><span class="dv">25</span> <span class="dv">0</span><span class="fu">.</span><span class="dv">1</span>
+
+<span class="ot">        vel ::</span> <span class="dt">WireM&#39;</span> a <span class="dt">Velocity</span>
+        vel <span class="fu">=</span>  (keyHeld <span class="dt">GLFW.Key&#39;Left</span>) <span class="fu">.</span> pure (<span class="dt">V2</span> (<span class="fu">-</span><span class="dv">1</span><span class="fu">.</span><span class="dv">5</span>) <span class="dv">0</span><span class="fu">.</span><span class="dv">0</span>)
+           <span class="fu">&lt;|&gt;</span> (keyHeld <span class="dt">GLFW.Key&#39;Right</span>) <span class="fu">.</span> pure (<span class="dt">V2</span>  <span class="dv">1</span><span class="fu">.</span><span class="dv">5</span> <span class="dv">0</span><span class="fu">.</span><span class="dv">0</span>)
+           <span class="fu">&lt;|&gt;</span> pure (<span class="dt">V2</span> <span class="dv">0</span> <span class="dv">0</span>)
+
+<span class="ot">        fireBullet ::</span> <span class="dt">WireM&#39;</span> (<span class="dt">Position</span>, <span class="dt">Velocity</span>) [<span class="dt">ThingWire</span>]
+        fireBullet <span class="fu">=</span>  (keyDownE <span class="dt">GLFW.Key&#39;Space</span>) <span class="fu">.</span> arr ((<span class="fu">:</span>[]) <span class="fu">.</span> <span class="dt">ThingWire</span> <span class="fu">.</span> uncurry bulletW) <span class="fu">.</span> arr (_2<span class="fu">.</span>_y <span class="fu">.~</span> <span class="dv">1</span>) <span class="fu">.</span> arr (_1<span class="fu">.</span>_y <span class="fu">.~</span> <span class="fu">-</span><span class="dv">0</span><span class="fu">.</span><span class="dv">75</span>)
+                  <span class="fu">&lt;|&gt;</span> pure []
+        
+        borderOnly (<span class="dt">Border</span> _) <span class="fu">=</span> <span class="dt">True</span>
+        borderOnly _  <span class="fu">=</span> <span class="dt">False</span></code></pre>
+</div>
+<div id="stuff-to-read" class="titleslide slide section level1"><h1>Stuff to read</h1></div><div id="here-is-a-list-of-some-resources-that-i-can-remember-that-helped-me." class="slide section level2">
+<h1>here is a list of some resources (that I can remember) that helped me.</h1>
+<ul class="incremental">
+<li><a href="http://www.arcadianvisions.com/blog/?p=388">Postmodern Haskell and OpenGL: Introducing vinyl-gl</a></li>
+<li><a href="http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html">Vinyl: Modern Records for Haskell</a></li>
+<li><a href="http://en.wikibooks.org/wiki/Haskell/Understanding_arrows">Haskell/Understanding arrows</a></li>
+<li><a href="http://en.wikibooks.org/wiki/Haskell/Arrow_tutorial">Haskell/Arrow tutorial</a></li>
+<li><a href="http://www.arcsynthesis.org/gltut/">Learning Modern 3D Graphics Programming</a></li>
+<li><a href="http://www.tapdancinggoats.com/opengl-in-haskell-glfw-b-boilerplate.htm">OpenGL in Haskell: GLFW-b Boilerplate</a></li>
+<li><a href="http://www.arcadianvisions.com/blog/?p=224">Modern OpenGL with Haskell</a></li>
+<li><a href="http://ocharles.org.uk/blog/posts/2013-08-18-asteroids-in-netwire.html">Asteroids &amp; Netwire</a></li>
+<li><a href="http://ocharles.org.uk/blog/posts/2013-08-01-getting-started-with-netwire-and-sdl.html">Getting Started with Netwire and SDL</a></li>
+<li><a href="http://dmytrish.wordpress.com/2013/01/12/haskell-opengl-animation-done-right/">Haskell OpenGL animation done right: using closures and channels instead of IORef’s</a></li>
+</ul>
+</div>
+</body>
+</html>

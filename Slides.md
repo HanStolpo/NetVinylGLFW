@@ -7,48 +7,49 @@ Introduction
 
 Why
 -------------------------------
-*Why Haskell?* I wanted to learn functional programming because its different than my background (OOP, imperitive, C++). At first I picked
-Haskell by accident but stuck to it because it was, still is, a bit scary and I like the air of "computer science formalism" it has about it.
-Oh and I am getting the feeling if I ever even halfway master it I will become a ninja with safety goggles.
+* Why Haskell? 
+    * Functional programming because its different than my OOP, imperitive, C++ background.
+    * Picked Haskell by accident
+    * Stuck with it because its scary and i like its air of "computer science formalism".
+    * If I ever halfway mastser it I will become a ninja with safety goggles.
+* Why game programming?
+    * Fun way to explore a new domain.
+    * Similar to my days job. 
+    * For good or bad I know what kinds of concepts I would like to map to the functional space.
+* Why OpenGL? 
+    * Haskell has support for it.
+    * Aligned with Haskell community's tenet of portability
+* Why Vinyl and Vinyl-GL?
+    * Modern OpenGL == No Fixed Function Pipeline
+    * Marshalling data to OpenGL is a pain
+    * Vinyl-GL makes it painless and safe.
 
-*Why game programming?* Well why not? It is I guess one of the more fun ways to explore a new domain and I sort of do something similar for
-my day job. So for good or bad I know what kinds of concepts I would like to map to the functional space.
-
-*Why OpenGL?* Haskell has support for it, and it follows more closely the Haskell community's tenet of portability than, lets say the other
-choice.
-
-*Why Vinyl and Vinyl-GL?* The road to Vinyl leads through Vinyl-GL, and to it from the fact that one does not use the fix function pipeline
-any more. Even though it seems like that is more used and supported in the community. It comes down to using shaders and marshaling
-a lot of data to OpenGL and this is a pain and error prone in any language or platform except if you build sensible abstractions. I was 
-about to try and write my own (the blind leading the blind?) when I came across a guys blog where he had an example using Vinyl-GL and it 
-was exactly what I wanted.
-
-*Why GLFW-b?* It just installs, which for a non pure Haskell library on my OS can sometimes be a pain. But more than that it seems well
-laid out minimalist and allows you to get a window with graphics up and running with minimal fuss.
-
-*Why FRP and why Netwire and why arrows?* FRP is cool, at least it used to be until it lost some of its lustre but it appears to be
-regaining some of its shine. Actually I was reading up on arrows and in particular a tutorial that was building up to an early version of
-the Netwire package when they introduced the automaton arrow and locally evolving state. This sold me on the idea of learning Netwire and
-arrows and FRP.
-
-*Why Lens and Linear?* We just had a talk about lenses at our users group and Linear uses lenses and if you are doing graphics, even 2D,
-you really need linear algebra package with nice support for low dimensionality vectors.
+Why
+--------------------------------
+* Why GLFW-b? 
+    * It just installs, which for FFI libraries isn't always the case.
+    * Makes it easy to get a window with graphics up and running.s
+* Why FRP and why Netwire and why arrows? 
+    * FRP is cool, at least it used to be, seems to be gaining coolnes again.
+    * Introduced to arrows through early Netwire tutorial.
+    * Sold by example of automaton arrow and local state.
 
 The theory of crumbs
 =========================
 
 A little FRP
 -------------------------
-As far as I have gathered functional reactive programming originated in the Haskell community in the late 1990s and was pioneered by people
-like [Conal Elliot and Paul Hudak][]. More recently Conal Elliot brought out a paper on [push-pull functional reactive programming][] 
-giving formal semantics for it as well as addressing implementation issues.
-
-Functional reactive programming, and [reactive programming]() in general, aims to simplify the creation of reactive systems
-like user interfaces, animations in real-time systems and games. Generally on would say what things are and how they related and the 
-system makes sure everything updates correctly when something changes. In FRP you are provided with behaviours and events. Conceptually 
-behaviours are continuous functions over time and events are discrete functions over time or streams of time value pairs. Additionally
-you would be have a switching construct which allows you to change behaviours due to events. You would build your system by composing 
-behaviours, events and switches.
+* Comes out of the Haskell community
+* From late 1990s
+* Pioneered by Conal Elliot and Paul Hudak
+* Recent paper by Conal Elliot on Push-Pull FRP giving formal semantics and addressing implementation issues.
+* Aims to simplify creating reactive systems (UIs, games etc)
+* You say *what* something is not *how* to do something.
+* You define relationships and the system ensures results upddte due to changes.
+* Primitives 
+    * Behaviours - continuous functions over time
+    * Events - discrete functions over time / streams of time value pairs
+    * Switch - switch behaviours due to event occurences
 
 ```haskell
 Behaviour a :: T -> a
@@ -56,16 +57,21 @@ Event a :: [(T,a)]
 Switch a :: Behaviour a -> Event (Behaviour a) -> Behaviour a
 ```
 
-[reactive programming]: http://en.wikipedia.org/wiki/Reactive_programming
-[Conal Elliot and Paul Hudak]: http://www.haskell.org/haskellwiki/Research_papers/Functional_reactive_programming
-[push-pull functional reactive programming]: http://www.haskell.org/haskellwiki/Research_papers/Functional_reactive_programming
+A smidgen of Arrows
+-----------------------
+* Abstract view computation defined by John Hughes. 
+* Similar to Monads but more general. 
+* Category of morphisms ??? (but I really don't know what I am talking about here) 
+* But the important thing is functions are arrows 
+* and other arrows are like functions with super secret jet packs. 
+* An arrow is usually represented as **a b c** meaning 
+    * arrow **a** 
+    * takes a value **b** 
+    * produces a value **c** 
+    * all happening in the context defined by the arrow **a**
 
 A smidgen of Arrows
 -----------------------
-[Arrows]() are an abstract view computation defined by [John Hughes][] which are similar to Monads but more general. *They are I guess*
-*(but I really don't know what I am talking about) sort of categories of mappings between sets.* But the important thing is functions
-are arrows and other arrows are like functions with super secret jet packs. An arrow is usually represented as **a b c** meaning 
-arrow **a** which takes a value **b** and produces a value **c** and this all happening in the context defined by the arrow **a**
 
 ```haskell
 -- b -> c == (->) b c == a b c where a == (->)
@@ -85,93 +91,114 @@ arrow **a** which takes a value **b** and produces a value **c** and this all ha
 --    
 ```
 
-Just like functions arrows can be composed and evaluated and there are arrow combinators which can be used to connect together networks
-of these arrows. Haskell also provides you with arrow notation which is similar to do notation allowing you to define complicated
-networks succinctly. You evaluate the arrow **(->) b c** basically by providing the argument **b** but other arrows will have special *run*
-functions. 
-
-An example of a non normal function arrow could be the automaton arrow that is based on functions that produce an output and a new
-evolved arrow which can be used in the next evaluation to produce a different result. Local state can be captured inside the automaton
-arrow which may be updated and returned in the new arrow to have an effect.
+A smidgen of Arrows
+-----------------------
+* Just like functions arrows can be composed and evaluated
+* Arrow combinators can be used to connect together networks of arrows
+* Haskell also provides you with arrow notation which is similar to do notation to ease network creation.
+* You evaluate the arrow **(->) b c** by providing the argument **b**
+* Other arrows will have special *run* functions. 
+* Example automaton arrow
+    * Evaluation produces value and new evolved arrow
+    * Evolved arrow used for next evaluation.
+    * Local state can captured in the arrow itself.
 
 ```haskell
 newtype Auto b c = Auto (b -> (c, Auto b c))
 runAuto (Auto a) b = let (c, newAuto) = a b in (c, newAuto)
 ```
-[John Hughes]: http://www.haskell.org/arrows/
-[Arrows]: http://en.wikibooks.org/wiki/Haskell/Understanding_arrows 
 
 A dash of Netwire
 -----------------
-[Netwire][] is an arrow library that can be used for FRP and other forms of locally stateful programming. The version I used was version 4
-and that is the one currently on Hackage. It seems [Netwire 5][] is still in development. 
+* Netwire is an arrow library that can be used for FRP and other forms of locally stateful programming. 
+* The version I used was version 4
+* Version 5 still in development. 
+* Core primitive is an automaton arrow that evolves with time (thats how I see it)
+* Its called a Wire and I think is more expressive than standard arrow semantics.
+* A wire can either produce or inhibit
+* If producing result of evaluation follows arrow semantics
+* If inhibiting no output instead evaluation results in inhibition monoid.
+* Inhibition of wire node inhibits entire sub-network.
+* There are primitives to switch networks based on inhibition
+* This allows you to merge sets of wires selecting the result based on wire inhibition.
 
-The core primitive in [Netwire][] is the wire which is an automaton arrow that evolves with time; at least thats how I see it. The semantics
-of the [Netwire][] arrows are, I would say, more expressive than the standard arrow semantics in that the arrow can either produce a value or 
-inhibit with a monoid. When a wire inhibits, itself and its dependant network will not produce a value but rather the result will be the
-inhibition monoid. There are also primitives for merging sets of wires selecting the result based on which ones inhibit and which ones don't.
-
-The wire type in Netwire is **Wire e m a b** with **Wire e m** defining the type of arrow with **e** being the type of the inhibition monoid
-and **m** being the type of the Monad the wire inhabits. For your application or a subsets of wires your application you would usually 
-fix **e** and **m** to specific types.
+A dash of Netwire
+-----------------
+* The wire type is **Wire e m a b** with.
+* **Wire e m** defining the type of arrow. 
+* **e** being the type of the inhibition monoid.
+* **m** being the type of the Monad the wire inhabits. 
+* You would usually fix **e** and **m** to specific types.
 
 ```haskell
 data Wire e m a b 
 type Event e m a = Wire e m a a
 ```
 
-Behaviours are represented in Netwire as wires from **a** to **b** and events as wires from **a** to **a**. So the wires map obviously to
-FRP behaviours but the mapping of input/output constrained wires to discrete FRP events involves a slight bit of subtlety. The continuous
-signal is modulated into a discrete signal by the fact that a wire can either inhibit or produce (switch on or off). But wires are flexible
-and any wire can inhibit, so why the type constraint on input/output values. It tells you that events should modulate the network they are
-embedded in based on the signals that flow through them. To get the FRP sense of events as a streams of discrete time values you 
-would modulate a value producing wire through an event wire. You could also have a value producing wire switching on and off but this is
-not usually what you want really want to be doing. 
-
-[Netwire 5][] actually recasts the event of of [Netwire 4][] as intervals and adds an explicit event concept. So [Netwire 5][] conceptually
-has wires, intervals and events where [Netwire 4][] conceptually has wires and events.
-
-[Netwire]: http://hackage.haskell.org/package/netwire-4.0.7/docs/Control-Wire.html
-[Netwire 4]: http://hackage.haskell.org/package/netwire-4.0.7/docs/Control-Wire.html
-[Netwire 5]: http://hub.darcs.net/ertes/netwire
+A dash of Netwire
+-----------------
+* Behaviours wires from **a** to **b** (Straight forward).
+* Events wires from **a** to **a** (Involves subtleties). 
+    * Modulate continuous signal flowing through it by either inhibiting or producing.
+    * Netwire 4 events don't produce values
+    * To get FRP event stream modulate value producing wire with event wire or use non event wire that inhibits.
+    * Most cases FRP event stream is not what you want.
+* Netwire 4 events are intervals in Netwire 5.
+* Netwire 5 introduces explicit event type.
 
 And garnish with Vinyl
 ----------------------
-[Vinyl][], what like in a record you play? Well yes. The vinyl library in short provides you constructs that you can use in place of the
-default supported Haskell records. It basically allows you to construct custom product types as type lists using all kinds of extensions
-for type level programming. 
-
-You can define a **Field** as a combination of a type level string and another type. This is a distinct type. You can then define type
-level lists of these fields to represent a record or **PlainRec**/**Rec** type. 
+* What like in a record you play? Well yes. 
+* Provides you constructs that you can use in place of Haskell Records.
+* It allows you to construct custom product types as type lists.
+* Uses all kinds of extensions for type level programming. 
+* **Field** defined a distinct type as the combination of type level string and another type.
+* **Rec**/**PlainRec** defines as type level list of fields giving you a record.
 
 ```haskell
 Field :: "name" ::: String --- a distinct field type with symbol name "name"
 type LifeForm = ["name" ::: String, "age" ::: Int, "sleeping" ::: Bool] -- an example of a record using vinyl
 ```
 
-[Vinyl-gl][] makes use of the fact that you tagged types with strings literals and can define arbitrary combinations of these to allow you
-to easily define vertex buffers and shader inputs and then takes care of uploading those values to OpenGL and checking that the semantics on
-OpenGL's side and your side matches up.
+And garnish with Vinyl
+----------------------
+* Vinyl-GL uses the strings literals associated with fields to match values in your shaders. 
+* It allows it to define your vertex layout automatically and check it at runtime.
+* It allows you to automatically verify that all shader values are supplied and correct. 
 
-[Vinyl]: http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html
 
 The experiment
 =========================
 
 The game or not the game
 -------------------------
-That is the question and the answer is that I spent too much time playing with scaffolding rather than defining any creative or sensible
-notion of a game. So currently you have a bordered area with a red and a green box bouncing around in it and a paddle at the bottom which
-you can move around and that can shoot little bullets. Everything renders to screen collides with one another and the paddle responds to
-keyboard input. It is very basic but at least something to experiment with.
+* That is the question.
+* The answer is that I spent too much time playing with scaffolding rather than defining a cool game.
+* The basic "game" 
+    * blue bordered area with 
+    * a red and a green box bouncing around in it 
+    * and a blue paddle at the bottom which
+    * you can move around 
+    * and that can shoot little bullets. 
+    * Everything renders to screen collides with one another and the paddle responds to keyboard input. 
+    * It is very basic but at least something to experiment with.
+
+The game or not the game
+-------------------------
+![Screen shot](ScreenShot.png "Screen shot")
 
 The structure of things
 -------------------------
-I wanted to keep the game loop pure and not just because the application is in Haskell but so that it would be possible to evolve it into
-a parallel game loop sometime in the future. This had an impact on the Monad chosen for the wires. I did not go for the Identity Monad, which
-would certainly have made the wires pure, but rather the effect free Reader Monad. This allowed me to pass the environment to my wires 
-without introducing dependency on effects. The environment holds all the available resources and also the results of the GLFW
-callbacks. How do I draw stuff then, well the main wire produces a stream of lists of IO actions.
+* I wanted to keep the game loop pure 
+    * Not just because the application is in Haskell
+    * To parallelize it in the future.
+* This had an impact on the Monad chosen for the wires. 
+    * Did not go for Identity Monad
+    * Went for the effect free Reader Monad. 
+    * This allowed me to pass the environment to my wires without introducing dependency on effects.
+* The environment holds all the resources and results from the GLFW callbacks. 
+* How do I draw stuff then? 
+    * The main wire produces a stream of lists of IO actions.
 
 ```haskell
 type WireM' = WireM ReadAppM        -- The type of wires in the app
@@ -179,9 +206,22 @@ type EventM' a = EventM ReadAppM a  -- The type of events in the app
 mainW :: WireM' a [IO()]            -- The main wire takes nothing but produces IO actions
 ```
 
-I wanted to make it easy to register and update GLFW callbacks as well as the other resources which would be available and I wanted to be
-flexible with which resource are available. I decided to use vinyl records to represent all the data in my Reader Monad and use type classes
-to iterate over them and initialize them.
+The structure of things
+-------------------------
+* I wanted to make it easy to register callbacks and load other resources 
+* I wanted to be flexible with which resource are available. 
+* I decided to use vinyl records to represent all the data in my Reader Monad and use type classes to iterate over them and initialize them.
+* The flow of the application is then as follows:
+    1. Construct the environment loading resources and registering callbacks etc.
+    2. Step the main wire running it inside the reader monad.
+    3. Perform all the actions returned by the main wire (draw stuff).
+    4. Update the environment due to GLFW callbacks.
+    5. Repeat from step 2 until the main wire inhibits.
+
+The structure of things
+-------------------------
+Excerpt from code showing environment type **App** and the type class used to iterate over one
+of the top level types.
 
 ```haskell
 -- Our application record consisting of a set of call back data, a function to update
@@ -209,20 +249,23 @@ instance (CreateRenderable f, CreateRenderables (PlainRec rs)) => CreateRenderab
         createRenderables ss = (V.<+>) <$> createRenderable ss <*> createRenderables ss
 `````
 
-The flow of the application is then as follows:
-1. Construct the environment loading resources and registering callbacks etc.
-2. Step the main wire running it inside the reader monad.
-3. Perform all the actions returned by the main wire (draw stuff).
-4. Update the environment due to GLFW callbacks.
-5. Repeat from step 2 until the main wire inhibits.
-
 
 Handling callbacks
 --------------------------
-Dealing with callbacks is painful in Haskell even when having to hook into a nice minimalist library like GLFW-b. So I wanted to make it
-easy to register callbacks with GLFW and to store the results in my Reader Monad so that they would be available for my wires to generate
-wire events. On one of the blogs I read I got introduced to the idea of queueing up the callback results using STM and then processing them
-again later. I evolved that idea into this.
+* Dealing with callbacks is painful in Haskell even when having to hook into a nice minimalist library like GLFW-b. 
+* I wanted to make it easy to register callbacks with GLFW and to store the results in my Reader Monad
+* Wanted to generate wire events based on callback data in my Reader Monad.
+* A blog I read introduced the idea of queueing up the callback results using STM and processing them later. 
+* I added a helper to do this for me.
+    * You give it the callback registering function
+    * and a lens to where the tupled up arguments to the callback should be stored
+    * and it returns a function that will update the environment with the callback data.
+* So you define a Vinyl type for your callback 
+* Add an instance for **RegisterCallback** where you use the helper to register the callback.
+* Access the callback data using the **readW** wire and build events based on the callbacks.
+
+Handling callbacks
+--------------------------
 
 ```haskell
 -- Set a GLFW call back using a lens to store the accumulated values in some type
@@ -261,19 +304,35 @@ instance RegisterCallback CbWindowSize where
 -- Given a lens produce a wire which provides the environment value at the current instant
 readW :: (Lens' App b) -> WireM' a b
 ```
-So you define a Vinyl type for your callback and an instance for **RegisterCallback** which will register it and make the results
-available in your application Reader Monad which you can access using the **readW**.
 
 Handling resources
 --------------------------------
-The only resources that I had were shaders and vertex buffers which I combined into a single resource as a renderable which is
-a function that takes values to be passed to the shader and renders it to screen. In a serious system you would actually want to batch
-your dispatching to OpenGL based on the shaders and vertex data but that will have to be the result of future experiments.
+* Only resources were shaders and vertex buffers 
+* Combined into a single resource as a renderable (function taking shader values and rendering to screen)
+* In a serious system you would actually want to batch your dispatching to OpenGL based on the shaders and vertex data.
+* Probably overcomplicated way of loading the shaders and making the renderables. 
+* Available shaders represented by a vinyl type list 
+    * Type class used to iterate over them 
+    * Load a shader per "shader type", 
+    * Only had one shader. 
+* Renderables represented by vinyl type list.
+    * Type class used to iterate over them and construct them
+    * Construction function passed list of shaders
+    * Allows me to combine the set of shaders with the set of vertex buffers to get the set of renderables.
+    * Only had one vertex buffer (a square)
 
-I probably unnecessarily overcomplicated the way I loaded the shaders and made the renderables. The set of available shaders I represented
-by a vinyl type list where I used a type class to iterate over them and load a shader per "shader type", but I just had one shader. The
-list of shaders got passed into the function to construct the list of renderables which would allow me to combine different vertex buffers
-with different vertex shaders to give me renderables, but I only had one renderable. 
+Handling resources
+--------------------------------
+* The vertex data is represented as a list of vinyl records of storable types 
+* The name tags of the fields are the same as the names of the vertex inputs in the shader.
+* Vinyl-GL takes care of working out how to upload the data to OpenGL 
+* Will give you an error if anything does no match up. 
+* The same is true for the shader values that will be uploaded to the shader, 
+* Shader values are represented as a vinyl record.
+
+
+Handling resources
+--------------------------------
 
 ```haskell
 -- Take a shader and some geometry and return an action which takes a record of shader values and renders it
@@ -318,23 +377,35 @@ makeRenderable :: (ViableVertex (PlainRec ves), UniformFields (PlainRec svs))
                -> IO (PlainRec svs -> IO())         -- The function taking shader values and rendering 
 ```
 
-The vertex data is represented as a list of vinyl records of storable types where the name tags of the fields are the same as the names
-of the vertex inputs in the shader and the types are convertible to the shader types. Vinyl-gl takes care of working out how to upload 
-the data to OpenGL and will give you an error if anything does no match up. The same is true for the shader values that will be uploaded
-to the shader, they are represented as a vinyl record.
 
 Dealing with a dynamic set of wires
 ------------------------------------
-Netwire allows you to switch wires due to events but this only allows you swap out a sub network. Granted the subnetwork could be as complex
-as you like and depend on the switching node's input, but I thought I needed more. This is probably due to a lack of experience with Netwire.
+* Netwire allows you to switch wires due to events 
+* This only allows you swap out a sub network 
+* Subnetwork could be as complex as you like 
+* Subnetwork can depend on the switching wire's input 
+* I thought I needed more. 
+    * Probably due to a lack of experience with Netwire.
 
-I had top level wires that represented the objects in my world and as input to them I wanted to pass in all the other objects so that they
-could react to each other. I also wanted new objects to be able to join the world or leave it and for the network to "rewire" itself. 
+Dealing with a dynamic set of wires
+------------------------------------
+* Top level wires represent objects in world.
+* The input to each wire includes the previous results of all others 
+    * (so they can react to each other).
+* Top level sum type called **Thing** (can be one of many things)
+* Top level wire called **ThingWire**
+    * **WireM' [Thing] ( IO(), (Thing, [ThingWire])**
+    * Take other things
+    * Produce IO action, itself and possible list of new things.
+* Wire to step all top level wires (**stepThingWires :: WireM' [ThingWire] [IO()]**)
+    * Take set of thing wires and evolve them
+    * Results of all other wires passed to each wire
+    * Any wire that inhibits gets removed
+    * Any new wires produced gets added to set of wires
+    * If all wires inhibit then the wire inhibits.
 
-I couldn't be bothered with proper names so my top level type was the sum type **Thing** (a thing can be one of many things). The top level
-wire **WireM' [Thing] ( IO(), (Thing, [ThingWire])** took a list of other things and produced an action, a new thing for itself
-and a list of possible new things. So if a top level wire produced more things they get added to the set of all things and any wire that
-inhibits is removed.
+Dealing with a dynamic set of wires
+------------------------------------
 
 ```haskell
 -- The top level sum type
@@ -383,11 +454,12 @@ stepThingWires = mkStateM ([],[]) stepWs
 
 Events
 --------------------------
-To generate events I created wires which queried the environment and then either inhibited or acted as the identity wire passing its input
-through to its output. This was not the first way I tried to approach it. First I had the event take any value and then either inhibit or
-produce the value. This does not compose because you cannot embed them in other networks. I think the key is to realize that events in 
-[Netwire 4][] are the same as intervals in [Netwire 5][] and that they should modulate the interval of production of the signals flowing
-through them.
+* Were wires which queried the environment and then either inhibited or acted as the identity wire
+* This was not the first way I tried to approach it. 
+* First I had the event take any value and then either inhibit or produce the value. 
+* This does not compose because you cannot embed them in other networks. 
+* The key is to realize that events in Netwire 4 are the same as intervals in Netwire 5 
+    *   They should modulate the interval of production of the signals flowing through them.
 
 ```haskell
 -- Create a wire event the produces only when the specified key has been pressed
@@ -401,17 +473,24 @@ passOver :: WireM' a b -> EventM' a
 passOver w = fst <$> (id &&& w)
 ```
 
-The other thing that got me a bit was generating an event which depends on a previous event and for that I used the **switch** construct.
-So when the key is pressed it produces an event wire which produces as long as the key is not up and initially we start with an inhibiting
-wire.
+Events
+--------------------------
+
+* Another stumble block was generating an event which depends on a previous event.
+* For that I used the **switch** construct.
+* Example was the key held event/interval
+* So when the key is pressed it produces an event wire which produces as long as the key is not up 
+* Initially we start with an inhibiting wire.
 
 ```haskell
 keyHeld :: GLFW.Key -> EventM' a
 keyHeld k = switch (pure ( untilKeyUpE k) . keyDownE k) (inhibit $ mempty)
 ```
 
-Sometimes you would want to switch your behaviour based on a choice of events and for this you use **<|>** since wires are Alternative 
-Applicative Functors.
+Events
+--------------------------
+* Sometimes you would want to switch your behaviour based on a choice of events 
+* For this you use **<|>** since wires are Alternative Applicative Functors.
 
 ```haskell
 vel =  (keyHeld GLFW.Key'Left) . pure (V2 (-1.5) 0.0)   -- if key left produce negative x velocity
@@ -421,10 +500,23 @@ vel =  (keyHeld GLFW.Key'Left) . pure (V2 (-1.5) 0.0)   -- if key left produce n
 
 Behaviours
 -------------------------
-Your behaviours are networks of wires modifying the signals flowing through them. You create more complex networks and behaviours by
-composing simpler ones. There are many ways you can compose the wires. You can compose them using the arrow composition operators, you
-can chain them using function composition, you can compose using Applicative and Alternative and you can even combine them using arithmetic
-operators. There is also special arrow syntax which is especially handy when wanting to use local feedback or recursion.
+* Behaviours are networks of wires modifying the signals flowing through them. 
+* Create complex networks by composing simpler ones. 
+* There are many ways you can compose the wires. 
+    * The arrow composition operators, 
+    * Function composition
+    * The Applicative and Alternative operators 
+    * Even using arithmetic operators. 
+* There is also special arrow syntax which is especially handy when wanting to use local feedback or recursion.
+
+Behaviours
+-------------------------
+* The **rec** key word is required when there is a recursive dependency between the wires. 
+* In general will have to use a **delay** somewhere in your recursive chain. 
+* Recursion can be used to capture local state (**v'**). 
+    * Could use of **mkState** / **mkStateM** for custom wire with explicit state.
+    * I was doing this in the beginning but feel implicitly capturing it is better. 
+* In general I found it is better to keep your wires short and to the point. 
 
 ```haskell
 integralV :: (Additive f, Fractional a)
@@ -436,11 +528,10 @@ integralV c = proc v -> do
     returnA -< c ^+^ v'
 ```
 
-The **rec** key word is required when there is a recursive dependency between the wires. Do note that in general you will need to use a 
-**delay** some where in your dependency chain (i.e. use the result one sample back). This can also be used to capture local state as in
-the example above (**v'**). You could also make use of **mkState** and **mkStateM** to create a custom wire where you explicitly define
-and handle the state, I was doing this in the beginning but feel implicitly capturing it is better. In general I found it is better to 
-keep your wires short and to the point. Here is an example of my most complex wire.
+
+Behaviours
+-------------------------
+Here is an example of my most complex wire.
 
 ```haskell
 paddleW :: WireM' [Thing] (IO (), (Thing, [ThingWire]))
@@ -469,4 +560,20 @@ paddleW = proc ts -> do
         
         borderOnly (Border _) = True
         borderOnly _  = False
+````
+
+Stuff to read
+==========================
+here is a list of some resources (that I can remember) that helped me.
+-------------------------
+* [Postmodern Haskell and OpenGL: Introducing vinyl-gl](http://www.arcadianvisions.com/blog/?p=388)
+* [Vinyl: Modern Records for Haskell](http://www.jonmsterling.com/posts/2013-04-06-vinyl-modern-records-for-haskell.html)
+* [Haskell/Understanding arrows](http://en.wikibooks.org/wiki/Haskell/Understanding_arrows)
+* [Haskell/Arrow tutorial](http://en.wikibooks.org/wiki/Haskell/Arrow_tutorial)
+* [Learning Modern 3D Graphics Programming](http://www.arcsynthesis.org/gltut/)
+* [OpenGL in Haskell: GLFW-b Boilerplate](http://www.tapdancinggoats.com/opengl-in-haskell-glfw-b-boilerplate.htm)
+* [Modern OpenGL with Haskell](http://www.arcadianvisions.com/blog/?p=224)
+* [Asteroids & Netwire](http://ocharles.org.uk/blog/posts/2013-08-18-asteroids-in-netwire.html)
+* [Getting Started with Netwire and SDL](http://ocharles.org.uk/blog/posts/2013-08-01-getting-started-with-netwire-and-sdl.html)
+* [Haskell OpenGL animation done right: using closures and channels instead of IORef’s](http://dmytrish.wordpress.com/2013/01/12/haskell-opengl-animation-done-right/)
 
