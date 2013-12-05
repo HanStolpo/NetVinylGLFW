@@ -1,3 +1,6 @@
+-- for local development when running from vim add source directory to local version of cabal generated files
+-- add ./ghci_only to ghci or ghc include paths
+-- GHC_STATIC_OPTION_i=./ghci_only
 {-# LANGUAGE DataKinds #-}          -- required by vinyl
 {-# LANGUAGE TypeOperators #-}      -- required by vinyl
 {-# LANGUAGE RankNTypes #-}         -- required for explicit for all
@@ -42,6 +45,8 @@ import System.Random ()
 import Prelude hiding ((.), id)     -- more general version imported from Control.Category
 --import Debug.Trace
 import GHC.Conc
+-- cabal generated or local to locate data files
+import Paths_NetVinylGLFW
 -- custom code
 import Data.Vinyl.Instances.Default 
 import Graphics.UI.GLFW.Vinyl.Callbacks
@@ -174,8 +179,10 @@ type Simple2D = "Simple2D" ::: GLU.ShaderProgram
 simple2D :: Simple2D
 simple2D = Field
 instance LoadShader Simple2D where 
-    loadShader = (simple2D =:) 
-              <$> GLU.simpleShaderProgramWith  ("Simple2D.vert") ("Simple2D.frag") (\_-> printGlErrors)
+    loadShader = do
+                phVert <- getDataFileName "Simple2D.vert"
+                phFrag <- getDataFileName "Simple2D.frag"
+                (simple2D =:) <$> GLU.simpleShaderProgramWith  phVert phFrag (\_-> printGlErrors)
 
 type MWorldViewProj2D = "mWorldViewProj2D" ::: M44 CFloat
 mWorldViewProj2D :: MWorldViewProj2D

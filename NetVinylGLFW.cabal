@@ -3,8 +3,14 @@ Version:        0.0
 Build-Type:     Simple
 Cabal-Version:  >= 1.9.2
 
+data-files:   
+    Simple2D.frag
+    Simple2D.vert
+
 executable NetVinylGLFW
     main-is:            NetVinylGLFW.hs
     GHC-Options:        -Wall -O2 -optc-Os
-    build-depends:      base, GLFW-b, OpenGL, GLUtil, netwire, mtl, lens, lifted-base, safe, random,
-                        stm, vinyl, vinyl-gl, linear, raw-strings-qq, transformers, data-default
+    other-modules:      Paths_NetVinylGLFW
+    build-depends:      base, GLFW-b >= 1.2 && < 1.3, OpenGL, GLUtil >= 0.6, netwire > 4 && < 5, mtl, lens >= 3.9, 
+                        lifted-base, safe, random, stm, vinyl >= 0.1.3, vinyl-gl >= 0.1.0.1, linear, raw-strings-qq, 
+                        transformers, data-default
